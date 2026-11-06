@@ -1,0 +1,6 @@
+/target
+scenarios/
+.DS_Store
+.vscode/
+.idea/
+*.swp

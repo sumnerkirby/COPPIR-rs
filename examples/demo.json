@@ -1,0 +1,553 @@
+{
+  "scenario": "DC Grid Incident Demo",
+  "pins": [
+    {
+      "name": "Rosslyn Substation",
+      "category": "Power Plants",
+      "lat": 38.8968,
+      "lon": -77.0719,
+      "status": "Under Investigation",
+      "op_status": "Critical"
+    },
+    {
+      "name": "Pepco Substation 4813",
+      "category": "Power Plants",
+      "lat": 38.9156,
+      "lon": -77.0937,
+      "status": "Compromised",
+      "op_status": "Critical"
+    },
+    {
+      "name": "Clarendon Substation",
+      "category": "Power Plants",
+      "lat": 38.8849,
+      "lon": -77.1046,
+      "status": "Under Investigation",
+      "op_status": "Degraded"
+    },
+    {
+      "name": "Ballston Substation",
+      "category": "Power Plants",
+      "lat": 38.885,
+      "lon": -77.0984,
+      "status": "Under Investigation",
+      "op_status": "Degraded"
+    },
+    {
+      "name": "Crystal Substation",
+      "category": "Power Plants",
+      "lat": 38.8578,
+      "lon": -77.0566,
+      "status": "Contained",
+      "op_status": "Degraded"
+    },
+    {
+      "name": "Dominion Energy Control",
+      "category": "Power Plants",
+      "lat": 38.8865,
+      "lon": -77.0876,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Children's National Hospital",
+      "category": "Hospitals",
+      "lat": 38.9273,
+      "lon": -77.0146,
+      "status": "Contained",
+      "op_status": "Degraded"
+    },
+    {
+      "name": "GW Medical Faculty Associates",
+      "category": "Hospitals",
+      "lat": 38.9051,
+      "lon": -77.0505,
+      "status": "Under Investigation",
+      "op_status": "Critical"
+    },
+    {
+      "name": "Whitman-Walker Health",
+      "category": "Hospitals",
+      "lat": 38.9105,
+      "lon": -77.0317,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Kaiser Permanente Capitol Hill",
+      "category": "Hospitals",
+      "lat": 38.8993,
+      "lon": -77.004,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Unity Health Care Anacostia",
+      "category": "Hospitals",
+      "lat": 38.8631,
+      "lon": -76.9837,
+      "status": "Monitored",
+      "op_status": "Degraded"
+    },
+    {
+      "name": "MedStar Prompt Care",
+      "category": "Hospitals",
+      "lat": 38.9225,
+      "lon": -77.0433,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "U.S. Department of State",
+      "category": "Government Buildings",
+      "lat": 38.8964,
+      "lon": -77.0461,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "FBI Washington Field Office",
+      "category": "Government Buildings",
+      "lat": 38.8978,
+      "lon": -77.0156,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "U.S. EPA Headquarters",
+      "category": "Government Buildings",
+      "lat": 38.894,
+      "lon": -77.0289,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Securities & Exchange Commission",
+      "category": "Government Buildings",
+      "lat": 38.8975,
+      "lon": -77.0042,
+      "status": "Contained",
+      "op_status": "Degraded"
+    },
+    {
+      "name": "Federal Communications Commission",
+      "category": "Government Buildings",
+      "lat": 38.9035,
+      "lon": -77.0071,
+      "status": "Under Investigation",
+      "op_status": "Degraded"
+    },
+    {
+      "name": "Dept. of Health & Human Services",
+      "category": "Government Buildings",
+      "lat": 38.8868,
+      "lon": -77.0166,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "United States Mint",
+      "category": "Government Buildings",
+      "lat": 38.9003,
+      "lon": -77.0237,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Government Publishing Office",
+      "category": "Government Buildings",
+      "lat": 38.8999,
+      "lon": -77.0095,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Dept. of Veterans Affairs",
+      "category": "Government Buildings",
+      "lat": 38.901,
+      "lon": -77.0231,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "DC Chief Technology Officer",
+      "category": "Government Buildings",
+      "lat": 38.8795,
+      "lon": -77.003,
+      "status": "Contained",
+      "op_status": "Degraded"
+    },
+    {
+      "name": "DCFD Engine Co. 16",
+      "category": "Fire Stations",
+      "lat": 38.9033,
+      "lon": -77.03,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "DCFD Engine Co. 3",
+      "category": "Fire Stations",
+      "lat": 38.8958,
+      "lon": -77.0109,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "DCFD Engine Co. 9",
+      "category": "Fire Stations",
+      "lat": 38.9173,
+      "lon": -77.0375,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "DC Fire & EMS Station 7",
+      "category": "Fire Stations",
+      "lat": 38.8769,
+      "lon": -77.0112,
+      "status": "Clean",
+      "op_status": "Degraded"
+    },
+    {
+      "name": "MPD Headquarters",
+      "category": "Police Stations",
+      "lat": 38.894,
+      "lon": -77.0192,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "MPD First District HQ",
+      "category": "Police Stations",
+      "lat": 38.8769,
+      "lon": -77.0128,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "U.S. Park Police HQ",
+      "category": "Police Stations",
+      "lat": 38.8764,
+      "lon": -77.0342,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "MPD Fourth District Substation",
+      "category": "Police Stations",
+      "lat": 38.9327,
+      "lon": -77.0257,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "McMillan Water Treatment Plant",
+      "category": "Water Systems",
+      "lat": 38.9244,
+      "lon": -77.0163,
+      "status": "Under Investigation",
+      "op_status": "Critical"
+    },
+    {
+      "name": "DC Water & Sewer Authority",
+      "category": "Water Systems",
+      "lat": 38.9526,
+      "lon": -77.0769,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Washington Union Station",
+      "category": "Transportation Hubs",
+      "lat": 38.8984,
+      "lon": -77.0059,
+      "status": "Contained",
+      "op_status": "Degraded"
+    },
+    {
+      "name": "Metro Center Station",
+      "category": "Transportation Hubs",
+      "lat": 38.8983,
+      "lon": -77.0286,
+      "status": "Under Investigation",
+      "op_status": "Degraded"
+    },
+    {
+      "name": "L'Enfant Plaza Station",
+      "category": "Transportation Hubs",
+      "lat": 38.8849,
+      "lon": -77.0226,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Gallery Place Station",
+      "category": "Transportation Hubs",
+      "lat": 38.8988,
+      "lon": -77.0219,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Reagan National Airport",
+      "category": "Transportation Hubs",
+      "lat": 38.8534,
+      "lon": -77.044,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Dupont Circle Station",
+      "category": "Transportation Hubs",
+      "lat": 38.9097,
+      "lon": -77.0436,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Arlington Wire Center",
+      "category": "Telecom Infrastructure",
+      "lat": 38.885,
+      "lon": -77.0964,
+      "status": "Monitored",
+      "op_status": "Degraded"
+    },
+    {
+      "name": "Verizon Central Office",
+      "category": "Telecom Infrastructure",
+      "lat": 38.9516,
+      "lon": -77.0268,
+      "status": "Monitored",
+      "op_status": "Degraded"
+    },
+    {
+      "name": "WUSA-TV / WJLA-TV Tower",
+      "category": "Telecom Infrastructure",
+      "lat": 38.9503,
+      "lon": -77.0798,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Hughes Memorial Tower",
+      "category": "Telecom Infrastructure",
+      "lat": 38.963,
+      "lon": -77.0267,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Georgetown University",
+      "category": "Universities",
+      "lat": 38.9089,
+      "lon": -77.0742,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Howard University",
+      "category": "Universities",
+      "lat": 38.9159,
+      "lon": -77.0184,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Gallaudet University",
+      "category": "Universities",
+      "lat": 38.9082,
+      "lon": -76.993,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Georgetown University Law",
+      "category": "Universities",
+      "lat": 38.8978,
+      "lon": -77.0129,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "George Washington University",
+      "category": "Universities",
+      "lat": 38.9021,
+      "lon": -77.051,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Industrial Bank",
+      "category": "Banks",
+      "lat": 38.8975,
+      "lon": -77.0306,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Charles Schwab DC",
+      "category": "Banks",
+      "lat": 38.8996,
+      "lon": -77.0272,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Bank-Fund Staff FCU",
+      "category": "Banks",
+      "lat": 38.8998,
+      "lon": -77.0443,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "Navy Federal Credit Union",
+      "category": "Banks",
+      "lat": 38.8974,
+      "lon": -77.0706,
+      "status": "Clean",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "American Bank",
+      "category": "Banks",
+      "lat": 38.9028,
+      "lon": -77.0311,
+      "status": "Monitored",
+      "op_status": "Healthy"
+    },
+    {
+      "name": "CoreSite DC1",
+      "category": "Data Centers",
+      "lat": 38.9029,
+      "lon": -77.0291,
+      "status": "Under Investigation",
+      "op_status": "Critical"
+    }
+  ],
+  "edges": [
+    {
+      "from": "Rosslyn Substation",
+      "to": "GW Medical Faculty Associates",
+      "label": "primary feed"
+    },
+    {
+      "from": "Rosslyn Substation",
+      "to": "Arlington Wire Center",
+      "label": "primary feed"
+    },
+    {
+      "from": "Pepco Substation 4813",
+      "to": "Metro Center Station",
+      "label": "traction power"
+    },
+    {
+      "from": "Arlington Wire Center",
+      "to": "Metro Center Station",
+      "label": "SCADA backhaul"
+    },
+    {
+      "from": "McMillan Water Treatment Plant",
+      "to": "Children's National Hospital",
+      "label": "potable supply"
+    },
+    {
+      "from": "Clarendon Substation",
+      "to": "Ballston Substation",
+      "label": "grid tie"
+    },
+    {
+      "from": "CoreSite DC1",
+      "to": "Federal Communications Commission",
+      "label": "hosted services"
+    },
+    {
+      "from": "Washington Union Station",
+      "to": "Metro Center Station",
+      "label": "transfer link"
+    }
+  ],
+  "injects": [
+    {
+      "title": "SCADA Compromise — Rosslyn",
+      "severity": "critical",
+      "fire": true,
+      "description": "Unauthorized breaker operation observed at Rosslyn Substation. Operator workstation isolated; vendor remote access revoked.",
+      "target": "Rosslyn Substation",
+      "target_status": "Compromised"
+    },
+    {
+      "title": "Fiber Cut — Arlington Wire Center",
+      "severity": "critical",
+      "fire": true,
+      "description": "Redundant fiber pair severed during substation response. Metro SCADA backhaul failed over to degraded secondary path.",
+      "target": "Arlington Wire Center",
+      "target_status": "Compromised"
+    },
+    {
+      "title": "Ransom Note — Water Authority",
+      "severity": "warning",
+      "fire": false,
+      "description": "Encrypted note delivered to McMillan plant HMI. No process impact confirmed. Awaiting forensic image before status change.",
+      "target": "McMillan Water Treatment Plant",
+      "target_status": "Compromised"
+    },
+    {
+      "title": "Secondary Grid Failure",
+      "severity": "critical",
+      "fire": false,
+      "description": "Contingency: loss of Clarendon tie would island the Ballston load pocket and drop three downstream feeders.",
+      "target": "Clarendon Substation",
+      "target_status": "Compromised"
+    },
+    {
+      "title": "Press Inquiry — Regional Outage",
+      "severity": "info",
+      "fire": false,
+      "description": "Regional outlet requesting comment on rolling outages. Route to PIO; no operational impact.",
+      "target": null,
+      "target_status": null
+    }
+  ],
+  "log": [
+    {
+      "action": "Incident declared — regional grid anomaly across NCR",
+      "asset": null
+    },
+    {
+      "action": "IR team dispatched to Rosslyn Substation",
+      "asset": "Rosslyn Substation"
+    },
+    {
+      "action": "Mutual aid requested from Dominion Energy Control",
+      "asset": "Dominion Energy Control"
+    },
+    {
+      "action": "Hospital diversion protocol activated for GW",
+      "asset": "GW Medical Faculty Associates"
+    },
+    {
+      "action": "Forensic image requested for McMillan plant HMI",
+      "asset": "McMillan Water Treatment Plant"
+    },
+    {
+      "action": "PIO briefed; holding statement prepared",
+      "asset": null
+    }
+  ],
+  "thresholds": [
+    {
+      "name": "Grid Integrity Critical",
+      "sector": "power",
+      "below_pct": 40,
+      "severity": "critical"
+    },
+    {
+      "name": "Medical Capacity Watch",
+      "sector": "medical",
+      "below_pct": 50,
+      "severity": "warning"
+    }
+  ]
+}
