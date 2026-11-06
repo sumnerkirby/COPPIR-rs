@@ -260,26 +260,180 @@ async fn websocket_snapshot_then_events_and_resume() {
     assert_eq!(common::Ws(ahead).recv().await["kind"], "snapshot");
 }
 
-#[tokio::test]
-async fn imports_a_v1_scenario_saved_by_the_v1_api() {
-    let app = TestApp::spawn().await;
-    let a = app.pin(json!({"name": "Substation", "category": "Power Plants", "status": "Compromised"})).await;
-    let b = app.pin(json!({"name": "Van", "category": "Mobile Units"})).await;
-    app.post("/api/edges", json!({"from_pid": a["id"], "to_pid": b["id"], "edge_type": "dependency"})).await;
-    app.inject(json!({"target_pid": a["id"], "target_status": "Contained"})).await;
-    app.post("/api/log", json!({"action": "declared"})).await;
-    app.post("/api/scenarios/save", json!({"name": "Legacy"})).await;
-    let file: Value = serde_json::from_slice(&std::fs::read(app.scenarios_dir().join("Legacy.json")).unwrap()).unwrap();
+/// A scenario file as the v1 app (and the Python app before it) wrote them.
+fn v1_scenario() -> Value {
+    json!({
+        "pins": {
+            "p1": {"id": "p1", "name": "Substation", "category": "Power Plants", "lat": 38.9, "lon": -77.0,
+                   "status": "Compromised", "op_status": "Degraded", "pin_color": null, "notes": "",
+                   "pinned_at": "2025-01-01T10:00:00", "status_history": [{"status": "Compromised", "timestamp": "2025-01-01T10:00:00"}]},
+            "p2": {"id": "p2", "name": "Van", "category": "Mobile Units", "lat": 38.91, "lon": -77.01}
+        },
+        "edges": {"e1": {"id": "e1", "from_pid": "p1", "to_pid": "p2", "label": "", "edge_type": "dependency"}},
+        "injects": {"i1": {"id": "i1", "title": "t", "description": "d", "severity": "info",
+                           "target_pid": "p1", "target_status": "Contained", "new_pin": null,
+                           "created_at": "2025-01-01T10:00:00", "triggered_at": null}},
+        "thresholds": [{"id": "t1", "name": "Grid", "sector": "power", "below_pct": 40, "severity": "critical"}],
+        "decision_log": [{"id": "l1", "timestamp": "2025-01-01T10:00:00", "action": "declared", "auto": false}],
+        "saved_at": "2025-01-01T11:00:00",
+        "name": "Legacy"
+    })
+}
 
-    let r = app.post("/api/v2/exercises/import/v1", json!({"name": "Legacy import", "scenario": file})).await;
+#[tokio::test]
+async fn imports_a_v1_scenario_body() {
+    let app = TestApp::spawn().await;
+    let r = app.post("/api/v2/exercises/import/v1", json!({"name": "Legacy import", "scenario": v1_scenario()})).await;
     assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
     let ex = &r.body["exercise"];
     assert_eq!(ex["assets"].as_object().unwrap().len(), 2);
     assert_eq!(ex["links"].as_object().unwrap().len(), 1);
     assert_eq!(ex["injects"].as_object().unwrap().len(), 1);
     assert_eq!(ex["log"].as_array().unwrap().len(), 1);
-    assert_eq!(ex["assets"][a["id"].as_str().unwrap()]["statuses"]["security"], "compromised");
+    assert_eq!(ex["assets"]["p1"]["statuses"]["security"], "compromised");
 
     let bad = app.post("/api/v2/exercises/import/v1", json!({"name": "x", "scenario": {"pins": [1]}})).await;
     assert_eq!(bad.status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn offers_and_imports_scenarios_left_by_v1() {
+    let app = TestApp::spawn().await;
+    // No folder yet: nothing to offer, and that is not an error.
+    assert_eq!(app.get("/api/v2/legacy/scenarios").await, json!([]));
+
+    let dir = app.scenarios_dir();
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("Exercise One.json"), v1_scenario().to_string()).unwrap();
+    std::fs::write(dir.join("broken.json"), "{not json").unwrap();
+    std::fs::write(dir.join("notes.txt"), "ignored").unwrap();
+    assert_eq!(app.get("/api/v2/legacy/scenarios").await, json!(["Exercise One", "broken"]));
+
+    let r = app.post("/api/v2/legacy/scenarios/import", json!({"name": "Exercise One"})).await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    assert_eq!(r.body["exercise"]["name"], "Exercise One");
+    assert_eq!(r.body["exercise"]["assets"].as_object().unwrap().len(), 2);
+
+    for (name, status) in [("broken", 400), ("missing", 404), ("../secret", 400), ("", 400)] {
+        let r = app.post("/api/v2/legacy/scenarios/import", json!({"name": name})).await;
+        assert_eq!(r.status.as_u16(), status, "{name}");
+    }
+}
+
+#[tokio::test]
+async fn undo_reverses_the_latest_change_and_is_logged() {
+    let app = TestApp::spawn().await;
+    let (id, _) = exercise(&app).await;
+    let a = add_asset(&app, &id, "Substation", "power_plants").await;
+    cmd(&app, &id, json!({"type": "set_status", "ids": [a], "set": "security", "value": "compromised"})).await;
+    cmd(&app, &id, json!({"type": "log", "text": "declared"})).await;
+
+    // Undo the log entry, then the status change, then the add.
+    let r = cmd(&app, &id, json!({"type": "undo"})).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    assert_eq!(r.body["events"][0]["event"], json!({"type": "undone", "seqs": [4]}));
+    assert_eq!(r.body["events"][1]["event"]["type"], "log_removed");
+    let r = cmd(&app, &id, json!({"type": "undo"})).await;
+    assert_eq!(r.body["events"][1]["event"]["assets"][0]["statuses"]["security"], "clean");
+    cmd(&app, &id, json!({"type": "undo"})).await;
+
+    let snap = app.get(&format!("/api/v2/exercises/{id}")).await;
+    assert_eq!(snap["exercise"]["assets"], json!({}));
+    assert_eq!(snap["exercise"]["log"], json!([]));
+    // The history keeps everything: 1 create, 3 changes, 3 undos of 2 events each.
+    assert_eq!(snap["seq"], 10);
+    let r = cmd(&app, &id, json!({"type": "undo"})).await;
+    assert_eq!(r.status, StatusCode::CONFLICT);
+}
+
+#[tokio::test]
+async fn undo_refuses_to_clobber_a_later_change() {
+    let app = TestApp::spawn().await;
+    let (id, _) = exercise(&app).await;
+    let a = add_asset(&app, &id, "a", "asset").await;
+    let b = add_asset(&app, &id, "b", "asset").await;
+    // Change b, then a. Undo reaches a's change first; that is fine.
+    cmd(&app, &id, json!({"type": "set_status", "ids": [b], "set": "security", "value": "monitored"})).await;
+    cmd(&app, &id, json!({"type": "set_status", "ids": [a], "set": "security", "value": "monitored"})).await;
+    assert_eq!(cmd(&app, &id, json!({"type": "undo"})).await.status, StatusCode::OK);
+    // Now overwrite b's change outside the undo stack's view: the stale undo
+    // of b's first change is refused rather than throwing the second away.
+    let r = cmd(&app, &id, json!({"type": "edit_asset", "id": b, "patch": {"notes": "edited"}})).await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert_eq!(cmd(&app, &id, json!({"type": "undo"})).await.status, StatusCode::OK, "undoes the notes edit");
+    assert_eq!(cmd(&app, &id, json!({"type": "undo"})).await.status, StatusCode::OK, "then b's status");
+    let snap = app.get(&format!("/api/v2/exercises/{id}")).await;
+    assert_eq!(snap["exercise"]["assets"][&b]["statuses"]["security"], "clean");
+}
+
+#[tokio::test]
+async fn annotations_and_metrics() {
+    let app = TestApp::spawn().await;
+    let (id, _) = exercise(&app).await;
+    let poly =
+        json!({"type": "Polygon", "coordinates": [[[-77.0, 38.9], [-77.1, 38.9], [-77.1, 39.0], [-77.0, 38.9]]]});
+    let r = cmd(&app, &id, json!({"type": "add_annotation", "shape": "polygon", "geometry": poly, "label": "Cordon"}))
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let ann = &r.body["events"][0]["event"]["annotation"];
+    assert_eq!((ann["label"].as_str(), ann["color"].as_str()), (Some("Cordon"), Some("#00ff41")));
+    let aid = ann["id"].as_str().unwrap().to_owned();
+
+    for bad in [
+        json!({"type": "add_annotation", "shape": "polygon", "geometry": {"type": "Point", "coordinates": [0, 0]}}),
+        json!({"type": "add_annotation", "shape": "point", "geometry": {"type": "Point", "coordinates": [200, 0]}}),
+        json!({"type": "add_annotation", "shape": "line", "geometry": {"type": "LineString", "coordinates": [[0, 0]]}}),
+        json!({"type": "add_annotation", "shape": "point", "geometry": {"type": "Point", "coordinates": [0, 0]}, "color": "red"}),
+    ] {
+        assert_eq!(cmd(&app, &id, bad.clone()).await.status, StatusCode::UNPROCESSABLE_ENTITY, "{bad}");
+    }
+    let r = cmd(&app, &id, json!({"type": "edit_annotation", "id": aid, "color": "#ff0000"})).await;
+    assert_eq!(r.body["events"][0]["event"]["annotation"]["color"], "#ff0000");
+    cmd(&app, &id, json!({"type": "remove_annotations", "ids": [aid]})).await;
+
+    let m = cmd(&app, &id, json!({"type": "add_metric", "name": "Comms readiness", "value": 80})).await;
+    let mid = m.body["events"][0]["event"]["metric"]["id"].as_str().unwrap().to_owned();
+    assert_eq!(
+        cmd(&app, &id, json!({"type": "edit_metric", "id": mid, "value": 101})).await.status,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    cmd(&app, &id, json!({"type": "edit_metric", "id": mid, "value": 35})).await;
+    let ex = app.get(&format!("/api/v2/exercises/{id}")).await["exercise"].clone();
+    assert_eq!(ex["annotations"], json!({}));
+    assert_eq!(ex["metrics"][0]["value"], 35);
+}
+
+#[tokio::test]
+async fn export_import_and_duplicate() {
+    let app = TestApp::spawn().await;
+    let (id, _) = exercise(&app).await;
+    let a = add_asset(&app, &id, "a", "asset").await;
+    let b = add_asset(&app, &id, "b", "asset").await;
+    cmd(&app, &id, json!({"type": "add_link", "from": a, "to": b})).await;
+
+    let r = app.http.get(format!("{}/api/v2/exercises/{id}/export", app.base)).send().await.unwrap();
+    assert_eq!(r.status(), StatusCode::OK);
+    assert_eq!(r.headers()["content-disposition"], "attachment; filename=\"Grid Drill.coppir\"");
+    let file: Value = r.json().await.unwrap();
+    assert_eq!(file["format"], "coppir.exercise");
+
+    let r = app.post("/api/v2/exercises/import", json!({"file": file, "name": "Imported"})).await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    assert_ne!(r.body["exercise"]["id"], json!(id));
+    assert_eq!(r.body["exercise"]["name"], "Imported");
+    assert_eq!(r.body["exercise"]["links"].as_object().unwrap().len(), 1);
+
+    let r = app.post(&format!("/api/v2/exercises/{id}/duplicate"), json!({})).await;
+    assert_eq!(r.status, StatusCode::CREATED);
+    assert_eq!(r.body["exercise"]["name"], "Grid Drill (copy)");
+    assert_eq!(r.body["seq"], 1, "a copy starts with a fresh history");
+    assert_eq!(app.len("/api/v2/exercises").await, 3);
+
+    let mut tampered = file.clone();
+    tampered["exercise"]["assets"][&a]["type_id"] = json!("spaceship");
+    assert_eq!(app.post("/api/v2/exercises/import", json!({"file": tampered})).await.status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        app.post("/api/v2/exercises/import", json!({"file": {"pins": {}}})).await.status,
+        StatusCode::BAD_REQUEST
+    );
 }

@@ -4,6 +4,7 @@
 
 use std::collections::BTreeMap;
 
+use super::legacy::{self as v1, OpStatus, Scenario, Status};
 use super::{
     model::{
         Asset, AssetType, Effect, Exercise, GeoPoint, Inject, Link, LinkKind, LogEntry, NewAsset, Severity,
@@ -11,11 +12,7 @@ use super::{
     },
     taxonomy::{OPERATIONAL, SECURITY, slug},
 };
-use crate::{
-    error::ApiError,
-    models::{self as v1, OpStatus, Status},
-    state::Session,
-};
+use crate::error::ApiError;
 
 fn security(s: Status) -> &'static str {
     match s {
@@ -46,7 +43,7 @@ fn severity(s: v1::Severity) -> Severity {
 
 /// Parse v1 scenario JSON and build an exercise from it.
 pub fn import(json: &serde_json::Value, name: &str, now: &str) -> Result<Exercise, ApiError> {
-    let session: Session = serde_json::from_value(json.clone())
+    let session: Scenario = serde_json::from_value(json.clone())
         .map_err(|e| ApiError::BadRequest(format!("Not a v1 scenario file: {e}")))?;
     let mut ex = super::blank(name, "Imported from a v1 scenario.", now)?;
 
@@ -159,15 +156,12 @@ pub fn import(json: &serde_json::Value, name: &str, now: &str) -> Result<Exercis
     ex.thresholds = session
         .thresholds
         .iter()
-        .map(|t| {
-            let sector = serde_json::to_value(t.sector).ok().and_then(|v| v.as_str().map(str::to_owned));
-            Threshold {
-                id: t.id.clone(),
-                name: t.name.clone(),
-                sector: sector.filter(|s| s != "all"),
-                below_pct: t.below_pct.min(100),
-                severity: severity(t.severity),
-            }
+        .map(|t| Threshold {
+            id: t.id.clone(),
+            name: t.name.clone(),
+            sector: t.sector.id().map(str::to_owned),
+            below_pct: t.below_pct.min(100),
+            severity: severity(t.severity),
         })
         .collect();
 

@@ -1,6 +1,6 @@
 # COPPIR v2 Design
 
-Status: milestone 1 done · 2026-11-06
+Status: milestone 2 done · 2026-11-06
 
 ## Goal
 
@@ -171,7 +171,7 @@ Each milestone ships something runnable and keeps the test suite green.
    taxonomy that reproduces today's behavior, v1 scenario import, typed
    `/api/v2` with generated TS types, and a `web/` scaffold that renders a
    loaded exercise on MapLibre.
-2. **Facilitator parity**: the new UI matches the current app (assets, links,
+2. ✅ **Facilitator parity**: the new UI matches the current app (assets, links,
    log, injects, thresholds, zones and markup, exports, undo). Taxonomy
    editing. The vanilla-JS frontend and v1 API are removed.
 3. **Room access**: LAN mode, QR codes and join codes, roles, teams,

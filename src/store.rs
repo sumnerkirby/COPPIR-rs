@@ -250,7 +250,7 @@ mod tests {
     /// Create an exercise and run `n` log commands through decide/apply/append.
     fn build(store: &Store, n: usize) -> (Exercise, u64) {
         let ex0 = blank("Drill", "", "t0").unwrap();
-        let genesis = envelope(1, Event::Created { exercise: ex0.clone() });
+        let genesis = envelope(1, Event::Created { exercise: Box::new(ex0.clone()) });
         let mut ex = ex0.clone();
         ex.apply(&genesis);
         store.create(&ex, &[genesis]).unwrap();

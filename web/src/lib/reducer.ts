@@ -65,6 +65,26 @@ export function apply(ex: Exercise, env: Envelope): Exercise {
     case 'logged':
       ex.log.push(e.entry);
       break;
+    case 'log_removed':
+      ex.log = ex.log.filter((l) => l.id !== e.id);
+      break;
+    case 'annotation_upserted':
+      ex.annotations[e.annotation.id] = e.annotation;
+      break;
+    case 'annotations_removed':
+      for (const id of e.ids) delete ex.annotations[id];
+      break;
+    case 'metric_upserted': {
+      const i = ex.metrics.findIndex((m) => m.id === e.metric.id);
+      if (i >= 0) ex.metrics[i] = e.metric;
+      else ex.metrics.push(e.metric);
+      break;
+    }
+    case 'metric_removed':
+      ex.metrics = ex.metrics.filter((m) => m.id !== e.id);
+      break;
+    case 'undone':
+      break;
     default: {
       // A new event type on the server without a case here fails type-checking.
       const unhandled: never = e;

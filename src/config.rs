@@ -20,7 +20,8 @@ pub const OVERPASS_MIRRORS: &[&str] = &[
 
 #[derive(Clone, Debug)]
 pub struct Config {
-    /// Where scenario files are written. Must already exist.
+    /// Where version 1 saved scenario files. Read only, to offer them for
+    /// import; it need not exist.
     pub scenarios_dir: PathBuf,
     /// The SQLite database for v2 exercises. `None` keeps everything in
     /// memory, which is what the tests use.

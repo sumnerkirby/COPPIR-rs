@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::model::{Asset, Exercise, Inject, Link, LogEntry, Taxonomy, Threshold};
+use super::model::{Annotation, Asset, Exercise, Inject, Link, LogEntry, Metric, Taxonomy, Threshold};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -16,7 +16,8 @@ use super::model::{Asset, Exercise, Inject, Link, LogEntry, Taxonomy, Threshold}
 pub enum Event {
     /// The first event of every exercise: its complete starting state.
     Created {
-        exercise: Exercise,
+        // Boxed: every other event is small, and this one holds everything.
+        exercise: Box<Exercise>,
     },
     Renamed {
         name: String,
@@ -63,6 +64,28 @@ pub enum Event {
     Logged {
         entry: LogEntry,
     },
+    /// Only produced by undoing a `Logged` or `InjectFired`.
+    LogRemoved {
+        id: String,
+    },
+    AnnotationUpserted {
+        annotation: Annotation,
+    },
+    AnnotationsRemoved {
+        ids: Vec<String>,
+    },
+    MetricUpserted {
+        metric: Metric,
+    },
+    MetricRemoved {
+        id: String,
+    },
+    /// Marks that the events after it, in the same batch, reverse the changes
+    /// made at `seqs`. Changes no state; it is there for the after-action log.
+    Undone {
+        #[ts(type = "number[]")]
+        seqs: Vec<u64>,
+    },
 }
 
 /// An event as stored and sent: numbered, timestamped, attributed.
@@ -83,7 +106,7 @@ impl Exercise {
         self.updated_at.clone_from(&env.at);
         match &env.event {
             Event::Created { exercise } => {
-                *self = exercise.clone();
+                *self = (**exercise).clone();
                 self.updated_at.clone_from(&env.at);
             }
             Event::Renamed { name, description } => {
@@ -126,6 +149,21 @@ impl Exercise {
             },
             Event::ThresholdRemoved { id } => self.thresholds.retain(|t| &t.id != id),
             Event::Logged { entry } => self.log.push(entry.clone()),
+            Event::LogRemoved { id } => self.log.retain(|e| &e.id != id),
+            Event::AnnotationUpserted { annotation } => {
+                self.annotations.insert(annotation.id.clone(), annotation.clone());
+            }
+            Event::AnnotationsRemoved { ids } => {
+                for id in ids {
+                    self.annotations.shift_remove(id);
+                }
+            }
+            Event::MetricUpserted { metric } => match self.metrics.iter_mut().find(|m| m.id == metric.id) {
+                Some(m) => *m = metric.clone(),
+                None => self.metrics.push(metric.clone()),
+            },
+            Event::MetricRemoved { id } => self.metrics.retain(|m| &m.id != id),
+            Event::Undone { .. } => {}
         }
     }
 
@@ -140,7 +178,7 @@ impl Exercise {
         let mut iter = events.into_iter();
         let first = iter.next()?;
         let Event::Created { exercise } = &first.event else { return None };
-        let mut ex = exercise.clone();
+        let mut ex = (**exercise).clone();
         ex.apply(first);
         for env in iter {
             ex.apply(env);

@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
 use reqwest::{Method, StatusCode};
-use serde_json::{Value, json};
+use serde_json::Value;
 use tempfile::TempDir;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, tungstenite::Message};
@@ -29,7 +29,6 @@ impl TestApp {
     pub async fn spawn() -> Self {
         let dir = tempfile::tempdir().unwrap();
         let scenarios = dir.path().join("scenarios");
-        std::fs::create_dir(&scenarios).unwrap();
         let listener = coppir::bind(0, false).await.unwrap();
         let addr = listener.local_addr().unwrap().to_string();
         let mut config = coppir::Config::new(scenarios);
@@ -74,42 +73,9 @@ impl TestApp {
         self.call(Method::DELETE, path, None).await
     }
 
-    /// Create a pin with sensible defaults overridden by `overrides`.
-    pub async fn pin(&self, overrides: Value) -> Value {
-        let mut body = json!({"name": "Test Asset", "category": "Asset", "lat": 38.9, "lon": -77.03});
-        merge(&mut body, overrides);
-        let r = self.post("/api/pins", body).await;
-        assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
-        r.body
-    }
-
-    pub async fn inject(&self, overrides: Value) -> Value {
-        let mut body = json!({"title": "Substation outage", "description": "grid down"});
-        merge(&mut body, overrides);
-        let r = self.post("/api/injects", body).await;
-        assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
-        r.body
-    }
-
-    pub async fn pins(&self) -> serde_json::Map<String, Value> {
-        self.get("/api/pins").await.as_object().unwrap().clone()
-    }
-
     pub async fn len(&self, path: &str) -> usize {
         let v = self.get(path).await;
         v.as_array().map(Vec::len).or_else(|| v.as_object().map(|o| o.len())).unwrap()
-    }
-
-    /// A websocket client with its opening `full_state` already consumed.
-    pub async fn ws(&self) -> Ws {
-        let mut ws = self.ws_raw().await;
-        assert_eq!(ws.recv().await["type"], "full_state");
-        ws
-    }
-
-    pub async fn ws_raw(&self) -> Ws {
-        let (stream, _) = tokio_tungstenite::connect_async(format!("ws://{}/ws", self.addr)).await.unwrap();
-        Ws(stream)
     }
 }
 
@@ -138,8 +104,4 @@ pub fn merge(base: &mut Value, overrides: Value) {
     if let (Some(b), Value::Object(o)) = (base.as_object_mut(), overrides) {
         b.extend(o);
     }
-}
-
-pub fn statuses(history: &Value) -> Vec<String> {
-    history.as_array().unwrap().iter().map(|h| h["status"].as_str().unwrap().to_owned()).collect()
 }

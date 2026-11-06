@@ -5,34 +5,108 @@ use std::{collections::HashSet, fmt::Write, time::Duration};
 
 use axum::{Json, extract::State};
 use reqwest::StatusCode;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use ts_rs::TS;
 
 use crate::{
     config::{self, OSM_RESULT_CAP},
     error::ApiError,
-    models::{GeoReq, OsmReq},
     state::AppState,
-    validate::Valid,
+    validate::{Checks, Valid, Validate},
 };
+
+#[derive(Debug, Deserialize, TS)]
+#[ts(export)]
+pub struct GeoReq {
+    pub query: String,
+}
+
+impl Validate for GeoReq {
+    fn check(&mut self, c: &mut Checks) {
+        c.label("query", &mut self.query, 300);
+    }
+}
+
+#[derive(Debug, Deserialize, TS)]
+#[ts(export)]
+pub struct OsmReq {
+    pub lat: f64,
+    pub lon: f64,
+    #[serde(default = "default_radius")]
+    #[ts(optional, as = "Option<f64>")]
+    pub radius_mi: f64,
+    pub category: String,
+}
+
+fn default_radius() -> f64 {
+    15.0
+}
+
+impl Validate for OsmReq {
+    fn check(&mut self, c: &mut Checks) {
+        c.coords(self.lat, self.lon);
+        if !(self.radius_mi > 0.0 && self.radius_mi <= 100.0) {
+            c.fail("radius_mi", "must be greater than 0 and at most 100");
+        }
+    }
+}
+
+/// The infrastructure categories an OSM search can look for.
+pub async fn categories() -> Json<Vec<&'static str>> {
+    Json(config::OSM_FILTERS.iter().map(|(name, _)| *name).collect())
+}
 
 const METRES_PER_MILE: f64 = 1609.344;
 
-pub async fn geocode(State(app): State<AppState>, Valid(req): Valid<GeoReq>) -> Result<Json<Value>, ApiError> {
+/// A place the geocoder found.
+#[derive(Debug, Serialize, PartialEq, TS)]
+#[ts(export)]
+pub struct Place {
+    pub name: String,
+    pub lat: f64,
+    pub lon: f64,
+    /// What sort of place, e.g. "hospital" or "city".
+    pub kind: String,
+}
+
+pub async fn geocode(State(app): State<AppState>, Valid(req): Valid<GeoReq>) -> Result<Json<Vec<Place>>, ApiError> {
     let res = app
         .http
         .get(&app.config.nominatim_url)
-        .query(&[("q", req.query.as_str()), ("format", "json"), ("limit", "5")])
+        .query(&[("q", req.query.as_str()), ("format", "json"), ("limit", "8")])
         .timeout(Duration::from_secs(10))
         .send()
         .await
         .and_then(|r| r.error_for_status())
         .map_err(|e| ApiError::Upstream(format!("Geocoder unavailable: {e}")))?;
-    let body = res.json().await.map_err(|e| ApiError::Upstream(format!("Geocoder sent a bad response: {e}")))?;
-    Ok(Json(body))
+    let body: Value = res.json().await.map_err(|e| ApiError::Upstream(format!("Geocoder sent a bad response: {e}")))?;
+    Ok(Json(parse_places(&body)))
 }
 
-#[derive(Debug, Serialize, PartialEq)]
+/// Nominatim sends coordinates as strings; skip anything without both.
+pub fn parse_places(body: &Value) -> Vec<Place> {
+    let num = |v: Option<&Value>| match v {
+        Some(Value::String(s)) => s.parse::<f64>().ok(),
+        Some(v) => v.as_f64(),
+        None => None,
+    };
+    body.as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|r| {
+            Some(Place {
+                name: r.get("display_name")?.as_str()?.to_owned(),
+                lat: num(r.get("lat"))?,
+                lon: num(r.get("lon"))?,
+                kind: r.get("type").and_then(Value::as_str).unwrap_or("place").replace('_', " "),
+            })
+        })
+        .collect()
+}
+
+#[derive(Debug, Serialize, PartialEq, TS)]
+#[ts(export)]
 pub struct OsmResult {
     pub name: String,
     pub lat: f64,
@@ -135,6 +209,19 @@ mod tests {
             q,
             r#"[out:json][timeout:40];(nwr["amenity"="bank"](around:1609,38.9,-77);nwr["amenity"="atm"](around:1609,38.9,-77););out center qt;"#
         );
+    }
+
+    #[test]
+    fn parses_nominatim_places() {
+        let body = json!([
+            {"display_name": "Washington, DC", "lat": "38.9", "lon": "-77.03", "type": "city"},
+            {"display_name": "No coordinates"},
+            {"display_name": "Numeric", "lat": 1.5, "lon": 2.5, "type": "fire_station"}
+        ]);
+        let got = parse_places(&body);
+        assert_eq!(got.len(), 2);
+        assert_eq!((got[0].lat, got[0].lon), (38.9, -77.03));
+        assert_eq!(got[1].kind, "fire station");
     }
 
     #[test]

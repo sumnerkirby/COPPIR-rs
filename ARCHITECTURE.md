@@ -2,229 +2,211 @@
 
 ## Overview
 
-COPPIR is a single-machine desktop application. It has no cloud component, no
-database and no accounts. State lives in memory for the length of a session and
-is written to disk only when someone saves a scenario.
-
-One process holds everything:
+COPPIR is one executable. It contains an HTTP and websocket server, the web
+frontend, and (with the default `desktop` feature) a native window that shows
+that frontend. Exercises live in one SQLite file as append-only event logs.
 
 ```
-┌───────────────────────────────────────────┐
-│  coppir (one executable)                  │
-│                                           │
-│  main thread: native window (tao + wry)   │
-│  ┌─────────────────────────────────────┐  │
-│  │  Frontend (HTML / CSS / JS)         │  │
-│  │  embedded from static/              │  │
-│  └──────────────┬──────────────────────┘  │
-│                 │ HTTP + WebSocket         │
-│                 │ 127.0.0.1:8000           │
-│  ┌──────────────▼──────────────────────┐  │
-│  │  Server (axum on tokio workers)     │  │
-│  │  REST API, broadcast, OSM, scenarios│  │
-│  └─────────────────────────────────────┘  │
-└───────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│  coppir (one executable)                     │
+│                                              │
+│  main thread: native window (tao + wry)      │
+│  ┌────────────────────────────────────────┐  │
+│  │  Frontend: Svelte 5 + TS + MapLibre    │  │
+│  │  embedded from web/dist/               │  │
+│  └───────────────┬────────────────────────┘  │
+│                  │ HTTP + WebSocket          │
+│                  │ 127.0.0.1:8000            │
+│  ┌───────────────▼────────────────────────┐  │
+│  │  Server: axum on tokio workers         │  │
+│  │  commands → events → SQLite → clients  │  │
+│  └───────────────┬────────────────────────┘  │
+│                  ▼                           │
+│        coppir.db (SQLite, WAL)               │
+└──────────────────────────────────────────────┘
 ```
 
 ## Startup (`src/main.rs`)
 
-1. Parse flags (`--port`, `--strict-port`, `--scenarios-dir`, `--headless`).
+1. Parse flags (`--port`, `--strict-port`, `--database`, `--scenarios-dir`,
+   `--headless`).
 2. Build a multi-threaded tokio runtime and bind `127.0.0.1:<port>`. If the
-   port is taken, bind a free one instead unless `--strict-port` is set.
-3. **Headless:** serve on the current thread until Ctrl+C.
-   **Desktop:** spawn the server on the runtime's worker threads, then run the
+   port is taken, bind a free one instead, unless `--strict-port` is set.
+3. Open the database, creating it and its folder if needed.
+4. **Headless:** serve on the current thread until Ctrl+C.
+   **Desktop:** spawn the server on the runtime's worker threads. Then run the
    window's event loop on the main thread, which macOS requires. Closing the
    window ends the process.
-
-The listener is bound before the window opens, so the window loads the app
-directly. `index.html` shows its own loading screen while the scripts start.
 
 ## Modules
 
 | Module | Role |
 |---|---|
-| `lib.rs` | `bind()` and `serve()`, the two entry points `main` and the tests share |
-| `config.rs` | Runtime `Config`, the default scenarios directory, Overpass mirrors and tag filters |
-| `state.rs` | `Session` (the data), `Hub` (lock + broadcast channel), `Event` (the wire protocol), `AppState` |
-| `models.rs` | Stored records and request bodies, with their `Validate` impls |
-| `validate.rs` | The `Valid<T>` extractor and the `Checks` accumulator |
-| `error.rs` | `ApiError`, rendered as `{"detail": ...}` the way FastAPI did |
-| `guard.rs` | Middleware that refuses non-loopback `Host` headers and foreign `Origin`s |
-| `assets.rs` | Serves the embedded `static/` directory with ETags |
-| `routes/` | One module per resource: pins, edges, injects, log, scenarios, thresholds, osm, ws |
-| `desktop.rs` | The window (feature `desktop`, on by default) |
+| `lib.rs` | `bind()` and `serve()`, which `main` and the tests share |
+| `config.rs` | Runtime `Config`, the data directory, Overpass mirrors and OSM tag filters |
+| `exercise/model.rs` | The domain: `Exercise`, `Taxonomy`, `Asset`, `Link`, `Inject`, `Threshold`, `LogEntry`, `Annotation`, `Metric` |
+| `exercise/taxonomy.rs` | The default taxonomy and taxonomy validation |
+| `exercise/command.rs` | `Command` and `decide`: check a command against the exercise and produce events |
+| `exercise/event.rs` | `Event`, `Envelope` and `Exercise::apply` |
+| `exercise/undo.rs` | The inverse of each event, and whether an undo is still safe |
+| `exercise/import_v1.rs`, `legacy.rs` | Read version 1 and Python scenario files into an exercise |
+| `store.rs` | SQLite: the `exercises` index, append-only `events`, `snapshots` |
+| `live.rs` | One room per open exercise: the in-memory state, the undo stack and the broadcast channel |
+| `routes/v2.rs` | `/api/v2`: exercises, commands, events, websocket, export and import |
+| `routes/osm.rs` | Place search (Nominatim) and infrastructure search (Overpass) |
+| `validate.rs` | The `Valid<T>` JSON extractor and the `Checks` accumulator |
+| `error.rs` | `ApiError`, rendered as `{"detail": ...}` |
+| `guard.rs` | Refuses non-loopback `Host` headers and foreign `Origin`s |
+| `assets.rs` | Serves the embedded frontend, with client-side route fallback and ETags |
+| `desktop.rs` | The window (feature `desktop`) |
 
-## State and broadcasting
+## How a change happens
 
-`Session` holds the five stores:
+```
+Command ─► decide() ─► Vec<Event> ─► number them ─► apply to a copy
+        ─► commit to SQLite ─► swap the copy in ─► push undo entry ─► broadcast
+```
 
-| Field | Type | Contents |
-|---|---|---|
-| `pins` | `IndexMap<String, Pin>` | Map pins, by id, in insertion order |
-| `injects` | `IndexMap<String, Inject>` | Queued and fired injects |
-| `edges` | `IndexMap<String, Edge>` | Connections between pins |
-| `thresholds` | `Vec<Threshold>` | Alert rules |
-| `decision_log` | `Vec<LogRecord>` | Every logged action, in order |
+`Live::execute` does all of that under the exercise's lock.
 
-`Hub` wraps the session in a `Mutex` next to a `tokio::sync::broadcast`
-channel. Handlers mutate state only through `Hub::with`, which passes the
-session and a `Publisher`. The broadcast is sent *while the lock is still
-held*, which gives two guarantees:
+- **Only `decide` can refuse.** It checks the command against the current
+  exercise (does the asset exist, is the status value in the taxonomy). It
+  returns 404, 409 or 422 without touching anything. `apply` never fails.
+- **Events carry results.** An event holds entities as they are *after* the
+  change: `AssetsUpserted` carries whole assets. Applying one is a plain upsert
+  or removal, in Rust (`Exercise::apply`) and in the browser
+  (`web/src/lib/reducer.ts`). Replay stays deterministic. The two reducers
+  are too simple to drift apart.
+- **Commit before broadcast.** The server builds the new state on a copy and
+  writes it to SQLite. Only then does it swap the copy in and send it. A failed write leaves memory as it
+  was. No client sees a change that a crash could take back.
+- **One order.** The lock covers the whole sequence. So every client sees
+  events in `seq` order, and a client that subscribes takes its snapshot and
+  subscription at the same moment.
 
-- Every client sees events in exactly the order the state changed.
-- `Hub::subscribe` takes the `full_state` snapshot and the channel subscription
-  under the same lock, so a client that joins mid-exercise can neither miss an
-  event nor receive one twice.
+### Undo
 
-Each event is serialized once and the bytes are shared by every subscriber. A
-client more than 1024 events behind gets a fresh `full_state` rather than a gap.
-No handler holds the lock across an `.await`. Scenario files are read and
-written outside it.
+Before `apply` runs each event, `undo::inverse` computes the events that
+reverse it from the state just before it. The room keeps the last 100 changes
+with their inverses, in memory. `Command::Undo` pops the newest one. It checks
+with `undo::still_current` that nothing later has overwritten what it touched.
+Then it appends `Undone { seqs }` followed by the inverse events. History is never
+rewritten. The undo stack does not survive a restart; the log does.
+
+## Storage (`store.rs`)
+
+| Table | Contents |
+|---|---|
+| `exercises` | One row per exercise: name, timestamps, head `seq`, asset count. Updated in the same transaction as its events. |
+| `events` | `(exercise_id, seq)` → time, actor, JSON event. Append-only. |
+| `snapshots` | The folded exercise every 250 events. The newest two are kept. |
+
+Loading an exercise reads the newest snapshot and applies the events after it.
+SQLite runs in WAL mode with `synchronous=NORMAL`. A committed event survives
+an app crash; a power cut can lose the last few milliseconds. `user_version`
+holds the schema version. The store refuses a database from a newer build.
 
 ## API
 
-All routes are under `/api/`, except the websocket at `/ws`. Anything else falls
-through to the embedded frontend.
+Every route is under `/api/`. Any other path serves the frontend, with
+`index.html` for client-side routes such as `/x/<id>`.
 
 | Method | Path | |
 |---|---|---|
 | GET | `/api/health` | Liveness and version |
-| GET, POST, DELETE | `/api/pins` | List (a map keyed by id) / create / delete all |
-| POST | `/api/pins/bulk` | Create many pins with one shared status |
-| POST | `/api/pins/bulk-status` | Set status and/or op status, optionally for one category |
-| PUT, DELETE | `/api/pins/{pid}` | Partial update / delete (and its edges) |
-| GET, POST | `/api/edges` | List / create |
-| DELETE | `/api/edges/{eid}` | Delete |
-| GET, POST | `/api/injects` | List / queue |
-| DELETE | `/api/injects/{iid}` | Delete |
-| POST | `/api/injects/{iid}/trigger` | Fire once: status change, new pin and log entry in one event |
-| GET, POST | `/api/log` | List / add a manual entry |
-| GET, POST, DELETE | `/api/thresholds`, `/api/thresholds/{tid}` | List / create / delete |
-| GET | `/api/scenarios` | Saved scenario names, sorted |
-| POST | `/api/scenarios/save`, `/api/scenarios/load` | Save / replace the session |
-| DELETE | `/api/scenarios/{name}` | Delete a saved file |
-| POST | `/api/state/clear` | Reset the session |
-| POST | `/api/geocode` | Nominatim search |
-| POST | `/api/search/osm` | Overpass search by category and radius |
+| GET | `/api/v2/taxonomy/default` | The default taxonomy |
+| GET, POST | `/api/v2/exercises` | List / create |
+| GET, DELETE | `/api/v2/exercises/{id}` | Snapshot (`{seq, exercise}`) / delete with its history |
+| POST | `/api/v2/exercises/{id}/commands` | Run one `Command`; returns the events it produced |
+| GET | `/api/v2/exercises/{id}/events?after=` | The event log |
+| GET | `/api/v2/exercises/{id}/ws?after=` | Live stream |
+| GET | `/api/v2/exercises/{id}/export` | Download a `.coppir` file |
+| POST | `/api/v2/exercises/{id}/duplicate` | Copy, with a fresh history |
+| POST | `/api/v2/exercises/import` | Create from a `.coppir` file |
+| POST | `/api/v2/exercises/import/v1` | Create from a version 1 scenario's JSON |
+| GET | `/api/v2/legacy/scenarios` | Version 1 scenario files waiting in the scenarios folder |
+| POST | `/api/v2/legacy/scenarios/import` | Import one of them by name |
+| POST | `/api/v2/geocode` | Place search |
+| GET | `/api/v2/osm/categories` | Infrastructure categories |
+| POST | `/api/v2/osm/search` | Infrastructure near a point |
 
-Websocket message types: `full_state`, `pin_add`, `bulk_add`, `pin_update`,
-`pin_delete`, `pins_cleared`, `bulk_update`, `edge_add`, `edge_delete`,
-`inject_queued`, `inject_delete`, `inject_triggered`, `threshold_add`,
-`threshold_delete`, `log_entry`. They are the variants of `state::Event`.
+**Live stream.** On connect the server sends a `snapshot`. With
+`?after=<seq>`, it sends just the events since then (up to 1,000). After that it
+sends each event as it happens. The client checks that every event is
+`seq + 1`. Otherwise it resyncs from a snapshot. The server also resyncs a
+client that falls 1,024 events behind.
 
-## Validation
+**Typed end to end.** Every request, response and message type derives
+`ts_rs::TS`. `cargo test` writes the TypeScript to `web/src/lib/types/`, and
+the frontend imports nothing else. `Command` and `Event` are discriminated
+unions. A new event without a case in `reducer.ts` fails `npm run check`.
 
-Request bodies go through `Valid<T>`. It requires `Content-Type:
-application/json`, deserializes with `serde_path_to_error` so a type error names
-its field, then runs `Validate::check`. Enum-like fields are Rust enums, so an
-unknown status cannot be represented. Name-like fields are trimmed and must not
-be blank. Errors come back as 422 with FastAPI's shape, which the frontend's
-`detailText()` already formats:
+**Validation.** `Valid<T>` requires `Content-Type: application/json`. It
+deserializes with `serde_path_to_error`, so a type error names its field, and
+runs `Validate::check`. Errors are 422s in FastAPI's shape, with every problem
+listed:
 
 ```json
-{"detail": [{"loc": ["body", "items", "1", "name"], "msg": "must not be blank", "type": "value_error"}]}
+{"detail": [{"loc": ["body", "assets", "1", "name"], "msg": "must not be blank", "type": "value_error"}]}
 ```
 
-## Local-only guard
+## Local-only guard (`guard.rs`)
 
-Binding to loopback keeps other machines out but not other websites in the
-user's browser. `guard::local_only` runs on every request:
+Binding to loopback keeps other machines out. It does not keep out other
+websites open in the user's browser. The guard checks every request:
 
-- `Host` must be `localhost`, `127.0.0.1` or `[::1]` (any port). This defeats
+- `Host` must be `localhost`, `127.0.0.1` or `[::1]`, on any port. This defeats
   DNS rebinding.
-- If `Origin` is present, it must be `http://<that host>`. This blocks
-  cross-site form posts to body-less routes, cross-site `fetch`, and cross-site
-  websockets.
+- If `Origin` is present, it must be `http://<that host>`. This blocks cross-site
+  form posts, `fetch` and websockets.
 
-Clients that send no `Origin`, such as curl, the seeder and same-origin GETs,
-pass.
+Clients that send no `Origin` (curl, the seeder, same-origin GETs) pass.
 
-## Scenarios
+## Frontend (`web/`)
 
-Names are reduced to `[A-Za-z0-9 _-]`, trimmed and capped at 64 characters.
-Names that end up empty or are reserved on Windows (`CON`, `NUL`, `COM1` and so
-on) are refused. The file format is the session's stores plus `name`,
-`saved_at` and `format_version`. It is the same layout the Python version
-wrote, so files move between the two. Saves write a temporary file and rename it
-over the target. Loads parse the whole file before touching state, and drop any
-edge whose pins are missing.
+Vite builds the Svelte 5 and TypeScript frontend into `web/dist/`, and
+`rust-embed` embeds it. A debug build of the binary reads `web/dist/` from disk instead.
 
-## Frontend (`static/`)
+| Path | Role |
+|---|---|
+| `lib/types/` | Generated from Rust; never edited by hand |
+| `lib/api.ts` | Typed `fetch` wrappers |
+| `lib/live.svelte.ts` | One exercise kept in sync over the websocket, with resume |
+| `lib/reducer.ts` | Applies an event to the local exercise |
+| `lib/workspace.svelte.ts` | Console state shared through context: selection, tool mode, layers, filters, the map handle |
+| `lib/markers.ts`, `lib/icons.ts` | Draws each marker (fill, ring style, glyph badge, Lucide icon) onto a canvas for MapLibre |
+| `lib/sitrep.ts` | Counts, sector health and breached thresholds, all from the taxonomy |
+| `lib/exports.ts` | CSV log and HTML briefing |
+| `lib/geo.ts` | Distance, convex hull, circles |
+| `components/map/` | MapView (sources and layers), toolbar, terra-draw drawing, context menu, legend |
+| `components/assets/`, `injects/`, `log/`, `setup/` | The sidebar tabs |
+| `components/taxonomy/` | The taxonomy editor |
 
-Unchanged from the Python version: plain ES2020 modules, no build step, with
-Leaflet and its plugins vendored under `static/vendor/`. See the original
-project's ARCHITECTURE.md for the module-by-module breakdown. Release builds
-embed the directory with `rust-embed`. Debug builds read it from disk on each
-request.
+**Map.** MapLibre GL draws everything from GeoJSON sources on the GPU: assets,
+links, sector zones (convex hulls), heat, annotations and the measuring line.
+Each marker image is named by its inputs (`mk|icon|fill|ring|style|glyph|selected`)
+and drawn on demand in `styleimagemissing`. Identical markers share one
+image, and any taxonomy works without a sprite sheet. Terra-draw handles
+drawing. The client sends a finished shape as an `add_annotation` command and
+removes it from terra-draw's own store. The shared annotation layer is the only
+copy.
 
 ## Desktop shell (`src/desktop.rs`)
 
 `tao` creates the window, 1440×900 with a 1100×700 minimum. `wry` hosts the
 platform webview: WKWebView on macOS, WebView2 on Windows, WebKitGTK on Linux.
-Blob downloads (the CSV and briefing exports) are saved to the user's Downloads
-folder with a non-clobbering name. Off-site links open in the default browser.
-`window.open('')` popups use the webview's default handling. Devtools are on in
-debug builds.
-
-## v2 (in progress)
-
-Milestone 1 of [docs/DESIGN.md](docs/DESIGN.md) adds these alongside the v1
-API, which keeps working until milestone 2 replaces it.
-
-| Module | Role |
-|---|---|
-| `exercise/model.rs` | The v2 domain: `Exercise`, `Taxonomy`, `Asset`, `Link`, `Inject`, `Threshold`, `LogEntry` |
-| `exercise/taxonomy.rs` | The default taxonomy (v1's statuses, categories and sectors) and taxonomy validation |
-| `exercise/command.rs` | `Command` and `decide`: checks a command against the exercise and returns events |
-| `exercise/event.rs` | `Event`, `Envelope` and `Exercise::apply` |
-| `exercise/import_v1.rs` | Converts a v1 or Python scenario file into an exercise |
-| `store.rs` | SQLite: `exercises` index, append-only `events`, `snapshots` every 250 events |
-| `live.rs` | One room per open exercise: decide → commit → apply → broadcast under the room lock |
-| `routes/v2.rs` | `/api/v2` and the per-exercise websocket |
-
-**Events carry results.** An event holds the entities as they are after the
-change (`AssetsUpserted` holds whole assets). Applying one is a plain upsert or
-removal, in Rust (`Exercise::apply`) and in the browser (`web/src/lib/reducer.ts`).
-That keeps replay deterministic and keeps the two reducers too simple to drift.
-
-**Commit before broadcast.** `Live::execute` decides, applies to a copy,
-commits to SQLite, then swaps the copy in and broadcasts, all under the
-exercise's lock. A failed commit leaves memory untouched. No client sees an
-event that a crash could lose.
-
-**Resumable streams.** `GET /api/v2/exercises/{id}/ws?after=<seq>` sends the
-events after `seq` (up to 1,000), then live events. Without `after`, or further
-behind than that, the client gets a `snapshot`. The client checks that every
-event is `seq + 1` and resyncs otherwise.
-
-**Typed end to end.** Every request, response and message type derives
-`ts_rs::TS`. `cargo test` writes them to `web/src/lib/types/`, and the frontend
-imports nothing else. `Command` and `Event` are discriminated unions, so a new
-event type without a case in `reducer.ts` fails `npm run check`.
-
-| Method | Path | |
-|---|---|---|
-| GET | `/api/v2/taxonomy/default` | The default taxonomy |
-| GET, POST | `/api/v2/exercises` | List / create |
-| POST | `/api/v2/exercises/import/v1` | Create from a v1 scenario file's JSON |
-| GET, DELETE | `/api/v2/exercises/{id}` | Snapshot (`{seq, exercise}`) / delete with history |
-| POST | `/api/v2/exercises/{id}/commands` | Run one `Command`; returns the events it produced |
-| GET | `/api/v2/exercises/{id}/events?after=` | The event log |
-| GET | `/api/v2/exercises/{id}/ws?after=` | Live stream |
-
-The frontend (`web/`) is Svelte 5 and TypeScript, built by Vite into
-`web/dist/`, embedded with `rust-embed`, and served at `/v2/`. The map is
-MapLibre GL with OpenFreeMap's keyless vector tiles. Assets and links are
-GeoJSON sources drawn on the GPU.
+The shell saves blob downloads (the exports) to the user's Downloads folder
+under a name that does not overwrite anything. Off-site links open in the default
+browser. Devtools are on in debug builds.
 
 ## Tests
 
 | Suite | Covers |
 |---|---|
-| unit tests (`src/**`) | Validation, sanitising, host checks, Overpass query and parsing |
-| `tests/*.rs` | The HTTP API and websocket, against a real server on a random port with a temp scenarios directory |
+| Rust unit tests | Validation, taxonomy checks, undo inverses for every command, store replay with and without snapshots, v1 import, Overpass and Nominatim parsing, host checks |
+| `tests/v2.rs` | The API and websocket against a real server on a random port: commands, races, resume, undo, export and import, legacy import |
+| `tests/security.rs` | The origin and host guard, content types, SPA fallback, upstream failures |
+| `web/src/**/*.test.ts` | The reducer (every event type), geometry, marker ids and icon names, exports |
 
-The integration tests are a port of the Python suite, plus coverage for the new
-behaviour: concurrent trigger races, event ordering across clients, the origin
-guard, damaged and legacy scenario files. The outbound URLs point at a closed
-local port, so nothing reaches the internet.
+Outbound URLs in the Rust tests point at a closed local port, so nothing
+reaches the internet.

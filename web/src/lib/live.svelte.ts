@@ -8,6 +8,7 @@
 import { api, socketUrl } from './api';
 import { apply } from './reducer';
 import type { Command } from './types/Command';
+import type { Envelope } from './types/Envelope';
 import type { Exercise } from './types/Exercise';
 import type { ServerMessage } from './types/ServerMessage';
 
@@ -22,6 +23,7 @@ export class LiveExercise {
   #retry = 1000;
   #timer: ReturnType<typeof setTimeout> | undefined;
   #closed = false;
+  #listeners = new Set<(env: Envelope) => void>();
 
   constructor(readonly id: string) {
     this.#connect();
@@ -29,6 +31,12 @@ export class LiveExercise {
 
   send(command: Command) {
     return api.send(this.id, command);
+  }
+
+  /** Called with each live event after it has been applied. */
+  on(fn: (env: Envelope) => void): () => void {
+    this.#listeners.add(fn);
+    return () => this.#listeners.delete(fn);
   }
 
   close() {
@@ -69,5 +77,6 @@ export class LiveExercise {
     }
     apply(this.exercise, msg);
     this.seq = msg.seq;
+    for (const fn of this.#listeners) fn(msg);
   }
 }

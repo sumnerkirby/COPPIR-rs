@@ -18,7 +18,10 @@ use ts_rs::TS;
 
 use crate::{
     error::ApiError,
-    exercise::{Command, Envelope, Event, Exercise, decide},
+    exercise::{
+        Command, Envelope, Event, Exercise, decide,
+        undo::{inverse, still_current},
+    },
     state::now,
     store::Store,
 };
@@ -26,6 +29,15 @@ use crate::{
 /// Clients further behind than this get a fresh snapshot instead of replay.
 pub const MAX_CATCH_UP: u64 = 1000;
 const CHANNEL_CAPACITY: usize = 1024;
+/// How many changes back undo can reach.
+pub const UNDO_DEPTH: usize = 100;
+
+/// One undoable change: the events it produced and the events that reverse it.
+struct UndoEntry {
+    seqs: Vec<u64>,
+    events: Vec<Event>,
+    inverse: Vec<Event>,
+}
 
 /// What the server sends down a v2 websocket.
 #[derive(Serialize, TS)]
@@ -59,6 +71,9 @@ pub struct Applied {
 struct RoomState {
     exercise: Exercise,
     seq: u64,
+    /// In memory only: after a restart there is nothing to undo, though the
+    /// full history is still in the log.
+    undo: Vec<UndoEntry>,
 }
 
 pub struct Room {
@@ -98,7 +113,7 @@ impl Live {
         }
         let (exercise, seq) = self.store.load(id)?.ok_or(ApiError::NotFound("Exercise not found"))?;
         let room = Arc::new(Room {
-            state: Mutex::new(RoomState { exercise, seq }),
+            state: Mutex::new(RoomState { exercise, seq, undo: Vec::new() }),
             tx: broadcast::channel(CHANNEL_CAPACITY).0,
         });
         rooms.insert(id.to_owned(), room.clone());
@@ -107,9 +122,14 @@ impl Live {
 
     /// Store a new exercise, starting from `exercise` as its genesis state.
     pub fn create(&self, exercise: Exercise, actor: &str) -> Result<(Exercise, u64), ApiError> {
-        let genesis = Envelope { seq: 1, at: now(), actor: actor.to_owned(), event: Event::Created { exercise } };
+        let genesis = Envelope {
+            seq: 1,
+            at: now(),
+            actor: actor.to_owned(),
+            event: Event::Created { exercise: Box::new(exercise) },
+        };
         let Event::Created { exercise } = &genesis.event else { unreachable!() };
-        let mut ex = exercise.clone();
+        let mut ex = (**exercise).clone();
         ex.apply(&genesis);
         self.store.create(&ex, std::slice::from_ref(&genesis))?;
         Ok((ex, 1))
@@ -134,7 +154,20 @@ impl Live {
         let room = self.room(id)?;
         let mut st = room.lock();
         let at = now();
-        let events = decide(&st.exercise, cmd, &at)?;
+        let undoing = matches!(cmd, Command::Undo);
+        let (events, undone) = if undoing {
+            let entry = st.undo.pop().ok_or(ApiError::Conflict("Nothing to undo"))?;
+            if !still_current(&st.exercise, &entry.events) {
+                // Put it back: it may become undoable again if the later change is undone first.
+                st.undo.push(entry);
+                return Err(ApiError::Conflict("Something has changed since; undo that first"));
+            }
+            let mut events = vec![Event::Undone { seqs: entry.seqs.clone() }];
+            events.extend(entry.inverse);
+            (events, true)
+        } else {
+            (decide(&st.exercise, cmd, &at)?, false)
+        };
         if events.is_empty() {
             return Ok(Applied { seq: st.seq, events: vec![] });
         }
@@ -145,13 +178,31 @@ impl Live {
             .collect();
 
         // Apply to a copy first: if the commit fails, memory stays as it was.
+        // Each event's inverse is taken from the state just before it.
         let mut next = st.exercise.clone();
+        let mut inverse_events = Vec::new();
         for env in &envelopes {
+            if !undone {
+                let mut inv = inverse(&next, &env.event);
+                inv.reverse();
+                inverse_events.extend(inv);
+            }
             next.apply(env);
         }
+        inverse_events.reverse();
         self.store.append(&next, &envelopes)?;
         st.exercise = next;
         st.seq = envelopes.last().map_or(st.seq, |e| e.seq);
+        if !undone && !inverse_events.is_empty() {
+            if st.undo.len() == UNDO_DEPTH {
+                st.undo.remove(0);
+            }
+            st.undo.push(UndoEntry {
+                seqs: envelopes.iter().map(|e| e.seq).collect(),
+                events: envelopes.iter().map(|e| e.event.clone()).collect(),
+                inverse: inverse_events,
+            });
+        }
 
         for env in &envelopes {
             let _ = room.tx.send(ServerMessage::Event(env).encode());

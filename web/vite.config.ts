@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
-// Served by the Rust binary under /v2/. In development, `npm run dev` proxies
-// the API and websockets to a server started with `cargo run -- --headless`.
+// Served by the Rust binary at /. In development, `npm run dev` proxies the
+// API and websockets to a server started with `cargo run -- --headless`.
 export default defineConfig({
-  base: '/v2/',
+  base: '/',
   plugins: [svelte()],
   build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
   server: {

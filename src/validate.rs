@@ -157,11 +157,37 @@ fn strip_position(msg: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::models::{PinIn, ThresholdIn};
+    use serde::Deserialize;
 
-    fn errors_for<T: DeserializeOwned + Validate>(json: &str) -> Vec<FieldError> {
-        match parse::<T>(json.as_bytes()).and_then(|mut v| v.validate()) {
+    use super::*;
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "lowercase")]
+    enum Status {
+        Clean,
+        Compromised,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct Body {
+        name: String,
+        lat: f64,
+        lon: f64,
+        #[allow(dead_code)]
+        status: Option<Status>,
+        color: Option<String>,
+    }
+
+    impl Validate for Body {
+        fn check(&mut self, c: &mut Checks) {
+            c.label("name", &mut self.name, 10);
+            c.coords(self.lat, self.lon);
+            c.color("color", self.color.as_deref());
+        }
+    }
+
+    fn errors_for(json: &str) -> Vec<FieldError> {
+        match parse::<Body>(json.as_bytes()).and_then(|mut v| v.validate()) {
             Err(ApiError::Validation(e)) => e,
             Err(other) => panic!("unexpected error {other:?}"),
             Ok(()) => vec![],
@@ -178,35 +204,31 @@ mod tests {
 
     #[test]
     fn unknown_enum_names_the_field() {
-        let e = errors_for::<PinIn>(r#"{"name":"x","lat":0,"lon":0,"status":"Melted"}"#);
+        let e = errors_for(r#"{"name":"x","lat":0,"lon":0,"status":"melted"}"#);
         assert_eq!(e[0].loc, ["body", "status"]);
-        assert!(e[0].msg.contains("Melted"), "{}", e[0].msg);
+        assert!(e[0].msg.contains("melted"), "{}", e[0].msg);
         assert!(!e[0].msg.contains("line"), "{}", e[0].msg);
     }
 
     #[test]
     fn reports_every_problem_at_once() {
-        let e = errors_for::<PinIn>(r#"{"name":"  ","lat":91,"lon":-181,"pin_color":"red"}"#);
+        let e = errors_for(r#"{"name":"  ","lat":91,"lon":-181,"color":"red"}"#);
         let fields: Vec<_> = e.iter().map(|f| f.loc.last().unwrap().as_str()).collect();
-        assert_eq!(fields, ["name", "lat", "lon", "pin_color"]);
+        assert_eq!(fields, ["name", "lat", "lon", "color"]);
     }
 
     #[test]
-    fn trims_labels() {
-        let mut p: PinIn = parse(br#"{"name":"  a  ","category":" b ","lat":0,"lon":0}"#).unwrap();
-        p.validate().unwrap();
-        assert_eq!((p.name.as_str(), p.category.as_str()), ("a", "b"));
+    fn trims_labels_and_counts_characters() {
+        let mut b: Body = parse(br#"{"name":"  a  ","lat":0,"lon":0}"#).unwrap();
+        b.validate().unwrap();
+        assert_eq!(b.name, "a");
+        assert!(errors_for(r#"{"name":"ééééééééééé","lat":0,"lon":0}"#)[0].msg.contains("10"));
+        assert!(errors_for(r#"{"name":"éééééééééé","lat":0,"lon":0}"#).is_empty());
     }
 
     #[test]
-    fn missing_field() {
-        let e = errors_for::<ThresholdIn>(r#"{"name":"x"}"#);
-        assert!(e[0].msg.contains("sector"), "{}", e[0].msg);
-    }
-
-    #[test]
-    fn trailing_garbage_is_rejected() {
-        let e = errors_for::<ThresholdIn>(r#"{"name":"x","sector":"power"} junk"#);
-        assert_eq!(e[0].kind, "json_invalid");
+    fn missing_field_and_trailing_garbage() {
+        assert!(errors_for(r#"{"lat":0,"lon":0}"#)[0].msg.contains("name"));
+        assert_eq!(errors_for(r#"{"name":"x","lat":0,"lon":0} junk"#)[0].kind, "json_invalid");
     }
 }

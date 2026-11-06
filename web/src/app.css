@@ -27,6 +27,19 @@ button {
 button:hover { border-color: var(--accent); }
 button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
 button.danger:hover { border-color: var(--danger); color: var(--danger); }
+button.danger-solid { background: var(--danger); border-color: var(--danger); color: #1a0000; font-weight: 600; }
+button.ghost { background: none; border-color: transparent; }
+button.ghost:hover { border-color: var(--line); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.small { padding: 3px 8px; font-size: 12px; }
+button.icon { display: inline-flex; align-items: center; gap: 6px; }
+.row { display: flex; gap: 8px; align-items: center; }
+.grow { flex: 1; min-width: 0; }
+.section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 0; }
+input[type='color'] { padding: 2px; height: 32px; width: 44px; }
+input[type='checkbox'], input[type='radio'] { width: auto; accent-color: var(--accent); }
+.empty { color: var(--muted); margin: 0; font-size: 13px; }
+kbd { font-family: var(--mono); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; font-size: 12px; }
 input, select, textarea {
   background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 8px; width: 100%;
 }

@@ -31,6 +31,12 @@ pub struct Exercise {
     pub thresholds: Vec<Threshold>,
     #[serde(default)]
     pub log: Vec<LogEntry>,
+    /// Shapes drawn on the map: zones, perimeters, routes, markers.
+    #[serde(default)]
+    pub annotations: IndexMap<String, Annotation>,
+    /// Facilitator-defined percentage wheels (resources, comms readiness…).
+    #[serde(default)]
+    pub metrics: Vec<Metric>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -220,6 +226,7 @@ pub enum LinkKind {
     DependsOn,
     #[default]
     ConnectsTo,
+    /// `to` is managed by `from`.
     ManagedBy,
 }
 
@@ -318,6 +325,42 @@ pub struct Threshold {
     pub below_pct: u8,
     #[serde(default)]
     pub severity: Severity,
+}
+
+/// The drawing tool a shape came from, so it can be edited the same way.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum Shape {
+    Point,
+    Line,
+    Freehand,
+    Polygon,
+    Rectangle,
+    Circle,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct Annotation {
+    pub id: String,
+    pub shape: Shape,
+    /// A GeoJSON geometry: Point, LineString or Polygon.
+    #[ts(type = "GeoJSON.Geometry")]
+    pub geometry: serde_json::Value,
+    #[serde(default)]
+    pub label: String,
+    pub color: String,
+    pub created_at: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct Metric {
+    pub id: String,
+    pub name: String,
+    /// 0–100.
+    pub value: u8,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]

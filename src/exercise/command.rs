@@ -10,8 +10,8 @@ use ts_rs::TS;
 use super::{
     event::Event,
     model::{
-        Asset, Effect, Exercise, FieldKind, GeoPoint, GraphPoint, Inject, Link, LinkKind, LogEntry, NewAsset, Severity,
-        StatusChange, Taxonomy, Threshold, Visibility,
+        Annotation, Asset, Effect, Exercise, FieldKind, GeoPoint, GraphPoint, Inject, Link, LinkKind, LogEntry, Metric,
+        NewAsset, Severity, Shape, StatusChange, Taxonomy, Threshold, Visibility,
     },
     taxonomy,
 };
@@ -96,6 +96,52 @@ pub enum Command {
         #[ts(optional)]
         notes: Option<String>,
     },
+    AddAnnotation {
+        shape: Shape,
+        #[ts(type = "GeoJSON.Geometry")]
+        geometry: serde_json::Value,
+        #[serde(default)]
+        #[ts(optional)]
+        label: Option<String>,
+        #[serde(default)]
+        #[ts(optional)]
+        color: Option<String>,
+    },
+    EditAnnotation {
+        id: String,
+        #[serde(default)]
+        #[ts(optional, type = "GeoJSON.Geometry")]
+        geometry: Option<serde_json::Value>,
+        #[serde(default)]
+        #[ts(optional)]
+        label: Option<String>,
+        #[serde(default)]
+        #[ts(optional)]
+        color: Option<String>,
+    },
+    RemoveAnnotations {
+        ids: Vec<String>,
+    },
+    AddMetric {
+        name: String,
+        #[serde(default)]
+        #[ts(optional)]
+        value: Option<u8>,
+    },
+    EditMetric {
+        id: String,
+        #[serde(default)]
+        #[ts(optional)]
+        name: Option<String>,
+        #[serde(default)]
+        #[ts(optional)]
+        value: Option<u8>,
+    },
+    RemoveMetric {
+        id: String,
+    },
+    /// Reverse the most recent change that has not been undone yet.
+    Undo,
 }
 
 // Commands are validated against the exercise in `decide`, not on their own.
@@ -427,9 +473,126 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
             let entry = LogEntry { id: new_id(), at: now.to_owned(), text, asset, asset_name, notes, auto: false };
             vec![Event::Logged { entry }]
         }
+
+        Command::AddAnnotation { shape, geometry, label, color } => {
+            let label = label.unwrap_or_default();
+            let color = color.unwrap_or_else(|| DEFAULT_ANNOTATION_COLOR.to_owned());
+            c.max_len("label", &label, NAME_MAX);
+            c.color("color", Some(&color));
+            check_geometry(shape, &geometry, &mut c);
+            c.finish()?;
+            let annotation = Annotation { id: new_id(), shape, geometry, label, color, created_at: now.to_owned() };
+            vec![Event::AnnotationUpserted { annotation }]
+        }
+
+        Command::EditAnnotation { id, geometry, label, color } => {
+            let mut a = ex.annotations.get(&id).ok_or(not_found("Annotation not found"))?.clone();
+            if let Some(g) = geometry {
+                check_geometry(a.shape, &g, &mut c);
+                a.geometry = g;
+            }
+            if let Some(l) = label {
+                c.max_len("label", &l, NAME_MAX);
+                a.label = l;
+            }
+            if let Some(col) = color {
+                c.color("color", Some(&col));
+                a.color = col;
+            }
+            c.finish()?;
+            vec![Event::AnnotationUpserted { annotation: a }]
+        }
+
+        Command::RemoveAnnotations { ids } => {
+            if ids.iter().any(|id| !ex.annotations.contains_key(id)) {
+                return Err(not_found("Annotation not found"));
+            }
+            if ids.is_empty() { vec![] } else { vec![Event::AnnotationsRemoved { ids }] }
+        }
+
+        Command::AddMetric { mut name, value } => {
+            c.label("name", &mut name, 100);
+            let value = value.unwrap_or(100);
+            if value > 100 {
+                c.fail("value", "must be between 0 and 100");
+            }
+            c.finish()?;
+            vec![Event::MetricUpserted { metric: Metric { id: new_id(), name, value } }]
+        }
+
+        Command::EditMetric { id, name, value } => {
+            let mut m = ex.metrics.iter().find(|m| m.id == id).ok_or(not_found("Metric not found"))?.clone();
+            if let Some(mut n) = name {
+                c.label("name", &mut n, 100);
+                m.name = n;
+            }
+            if let Some(v) = value {
+                if v > 100 {
+                    c.fail("value", "must be between 0 and 100");
+                }
+                m.value = v;
+            }
+            c.finish()?;
+            vec![Event::MetricUpserted { metric: m }]
+        }
+
+        Command::RemoveMetric { id } => {
+            if ex.metrics.iter().all(|m| m.id != id) {
+                return Err(not_found("Metric not found"));
+            }
+            vec![Event::MetricRemoved { id }]
+        }
+
+        // `Live` handles undo itself, because it needs the history of changes.
+        Command::Undo => return Err(ApiError::BadRequest("Undo is not available here".into())),
     };
     c.finish()?;
     Ok(events)
+}
+
+pub const DEFAULT_ANNOTATION_COLOR: &str = "#00ff41";
+
+/// The most points one shape may have. A freehand stroke samples densely, but
+/// thousands of points is a stuck mouse, not a drawing.
+const MAX_POINTS: usize = 10_000;
+
+/// A GeoJSON geometry of the kind `shape` draws, with every position on Earth.
+fn check_geometry(shape: Shape, g: &serde_json::Value, c: &mut Checks) {
+    use serde_json::Value;
+    let want = match shape {
+        Shape::Point => "Point",
+        Shape::Line | Shape::Freehand => "LineString",
+        Shape::Polygon | Shape::Rectangle | Shape::Circle => "Polygon",
+    };
+    if g.get("type").and_then(Value::as_str) != Some(want) {
+        c.fail("geometry", format!("a {shape:?} needs a GeoJSON {want}"));
+        return;
+    }
+    let position = |p: &Value| -> bool {
+        let Some(xy) = p.as_array() else { return false };
+        matches!(
+            (xy.first().and_then(Value::as_f64), xy.get(1).and_then(Value::as_f64)),
+            (Some(lon), Some(lat)) if (-180.0..=180.0).contains(&lon) && (-90.0..=90.0).contains(&lat)
+        )
+    };
+    let line = |l: &Value, min: usize| -> Option<usize> {
+        let pts = l.as_array()?;
+        (pts.len() >= min && pts.iter().all(position)).then_some(pts.len())
+    };
+    let coords = g.get("coordinates");
+    let points = match (want, coords) {
+        ("Point", Some(p)) if position(p) => Some(1),
+        ("LineString", Some(l)) => line(l, 2),
+        ("Polygon", Some(Value::Array(rings))) if !rings.is_empty() => {
+            rings.iter().map(|r| line(r, 4)).sum::<Option<usize>>()
+        }
+        _ => None,
+    };
+    match points {
+        None => c.fail("geometry", format!("invalid {want} coordinates")),
+        Some(n) if n > MAX_POINTS => c.fail("geometry", format!("at most {MAX_POINTS} points")),
+        Some(_) => {}
+    }
 }
 
 fn set_status(a: &mut Asset, set: &str, value: &str, now: &str) {

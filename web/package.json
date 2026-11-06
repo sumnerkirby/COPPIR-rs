@@ -10,7 +10,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "maplibre-gl": "^6.16.0"
+    "lucide": "^1.70.0",
+    "maplibre-gl": "^6.16.0",
+    "terra-draw": "^1.39.0",
+    "terra-draw-maplibre-gl-adapter": "^1.5.0"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

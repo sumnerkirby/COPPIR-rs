@@ -1,125 +1,90 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte';
-  import { LiveExercise } from '../lib/live.svelte';
-  import type { Command } from '../lib/types/Command';
-  import type { GeoPoint } from '../lib/types/GeoPoint';
-  import MapView from './MapView.svelte';
+  import { provideWorkspace, Workspace } from '../lib/workspace.svelte';
+  import { ui } from '../lib/ui.svelte';
+  import TopBar from './console/TopBar.svelte';
   import Sitrep from './Sitrep.svelte';
-  import AssetPanel from './AssetPanel.svelte';
-  import LogFeed from './LogFeed.svelte';
+  import MapView from './map/MapView.svelte';
+  import MapToolbar from './map/MapToolbar.svelte';
+  import Sidebar from './console/Sidebar.svelte';
+  import TaxonomyEditor from './taxonomy/TaxonomyEditor.svelte';
+  import ShortcutHelp from './console/ShortcutHelp.svelte';
+  import InjectBanner from './console/InjectBanner.svelte';
 
   let { id }: { id: string } = $props();
 
   // The parent re-creates this component per exercise (`{#key}`), so the id is fixed.
-  const live = new LiveExercise(untrack(() => id));
-  onDestroy(() => live.close());
+  const ws = new Workspace(untrack(() => id));
+  provideWorkspace(ws);
+  onDestroy(() => ws.close());
 
-  let selected = $state<string | null>(null);
-  let adding = $state(false);
-  let pending = $state<GeoPoint | null>(null);
-  let error = $state('');
+  const mod = (e: KeyboardEvent) => e.metaKey || e.ctrlKey;
 
-  /** Send a command; surface a refusal instead of throwing. */
-  async function send(cmd: Command) {
-    error = '';
-    try {
-      return await live.send(cmd);
-    } catch (e) {
-      error = (e as Error).message;
-      return null;
-    }
-  }
-
-  function onKey(e: KeyboardEvent) {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    if (e.key === 'a') adding = !adding;
-    if (e.key === 'Escape') {
-      adding = false;
-      pending = null;
-      selected = null;
+  function onkeydown(e: KeyboardEvent) {
+    const typing =
+      e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement;
+    if (ui.dialog || ws.showTaxonomy) return;
+    if (mod(e) && e.key.toLowerCase() === 'z' && !e.shiftKey && !typing) {
+      e.preventDefault();
+      ws.undo();
+    } else if (mod(e) && e.key.toLowerCase() === 'l') {
+      e.preventDefault();
+      ws.tab = 'log';
+    } else if (mod(e) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      ws.tab = 'assets';
+      ws.select(null);
+      queueMicrotask(() => document.getElementById('asset-search')?.focus());
+    } else if (e.key === 'Escape') {
+      if (ws.mode.kind !== 'select') ws.setMode({ kind: 'select' });
+      else if (ws.placing) ws.placing = null;
+      else ws.select(null);
+    } else if (typing || mod(e) || e.altKey) {
+      return;
+    } else if (e.key === 'a') {
+      ws.setMode(ws.mode.kind === 'add' ? { kind: 'select' } : { kind: 'add' });
+    } else if (e.key === 'm') {
+      ws.setMode(ws.mode.kind === 'measure' ? { kind: 'select' } : { kind: 'measure' });
+    } else if (e.key === '?') {
+      ws.showHelp = true;
     }
   }
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window {onkeydown} />
 
 <div class="console">
-  <header>
-    <a href="#/" class="brand" aria-label="All exercises">COPPIR</a>
-    <h1>{live.exercise?.name ?? 'Loading…'}</h1>
-    <span class="conn {live.connection}" title="Connection: {live.connection}" aria-label="Connection {live.connection}"></span>
-    <span class="muted mono seq">seq {live.seq}</span>
-    <button class:primary={adding} onclick={() => (adding = !adding)} title="Add asset (A)">
-      {adding ? 'Click the map…' : '+ Asset'}
-    </button>
-  </header>
-
-  {#if live.exercise}
-    <Sitrep exercise={live.exercise} />
+  <TopBar />
+  {#if ws.exercise}
+    <Sitrep exercise={ws.exercise} />
   {/if}
-
   <div class="body">
     <div class="map">
-      {#if live.exercise}
-        <MapView
-          exercise={live.exercise}
-          {selected}
-          {adding}
-          onselect={(a) => {
-            selected = a;
-            pending = null;
-          }}
-          onplace={(p) => {
-            pending = p;
-            selected = null;
-          }}
-        />
+      {#if ws.exercise}
+        <MapView />
+        <MapToolbar />
+        <InjectBanner />
       {:else}
-        <p class="muted loading">Loading exercise…</p>
+        <p class="empty loading">{ws.live.connection === 'offline' ? 'Cannot reach the server; retrying…' : 'Loading exercise…'}</p>
       {/if}
     </div>
-    <aside>
-      {#if error}<p class="error" role="alert">{error}</p>{/if}
-      {#if live.exercise}
-        <AssetPanel
-          exercise={live.exercise}
-          {selected}
-          {pending}
-          {send}
-          ondone={() => {
-            pending = null;
-            adding = false;
-          }}
-          onselect={(a) => (selected = a)}
-        />
-        <LogFeed exercise={live.exercise} {send} />
-      {/if}
-    </aside>
+    {#if ws.exercise}<Sidebar />{/if}
   </div>
 </div>
 
+{#if ws.showTaxonomy && ws.exercise}
+  <TaxonomyEditor onclose={() => (ws.showTaxonomy = false)} />
+{/if}
+{#if ws.showHelp}
+  <ShortcutHelp onclose={() => (ws.showHelp = false)} />
+{/if}
+
 <style>
   .console { display: grid; grid-template-rows: auto auto 1fr; height: 100%; }
-  header {
-    display: flex; align-items: center; gap: 12px; padding: 8px 14px;
-    background: var(--panel); border-bottom: 1px solid var(--line);
-  }
-  .brand { font-family: var(--mono); color: var(--accent); text-decoration: none; letter-spacing: 0.25em; font-weight: 700; }
-  h1 { font-size: 15px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .conn { width: 9px; height: 9px; border-radius: 50%; background: var(--warn); }
-  .conn.live { background: var(--accent); }
-  .conn.offline { background: var(--danger); }
-  .seq { font-size: 12px; }
-  .body { display: grid; grid-template-columns: 1fr 340px; min-height: 0; }
-  .map { position: relative; min-height: 0; }
+  .body { display: grid; grid-template-columns: 1fr 380px; min-height: 0; }
+  .map { position: relative; min-height: 0; overflow: hidden; }
   .loading { padding: 20px; }
-  aside {
-    border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto;
-    display: grid; align-content: start; gap: 16px; padding: 14px;
-  }
-  .error { color: var(--danger); margin: 0; }
-  @media (max-width: 800px) {
-    .body { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
-    aside { border-left: 0; border-top: 1px solid var(--line); }
+  @media (max-width: 900px) {
+    .body { grid-template-columns: 1fr; grid-template-rows: 60vh auto; }
   }
 </style>

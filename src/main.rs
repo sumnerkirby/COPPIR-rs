@@ -18,7 +18,8 @@ struct Cli {
     #[arg(long)]
     strict_port: bool,
 
-    /// Where saved scenarios live. Defaults to the per-user data directory.
+    /// Where version 1 saved scenarios, to offer them for import. Defaults to
+    /// `scenarios` in the per-user data directory.
     #[arg(long, env = "COPPIR_SCENARIOS_DIR")]
     scenarios_dir: Option<PathBuf>,
 
@@ -44,7 +45,6 @@ fn main() -> anyhow_lite::Result {
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
     let listener = runtime.block_on(coppir::bind(cli.port, !cli.strict_port))?;
     let url = format!("http://{}", listener.local_addr()?);
-    tracing::info!("scenarios in {}", config.scenarios_dir.display());
     if let Some(db) = &config.database {
         tracing::info!("database at {}", db.display());
     }

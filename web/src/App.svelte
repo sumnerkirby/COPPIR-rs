@@ -1,22 +1,17 @@
 <script lang="ts">
   import ExercisePicker from './components/ExercisePicker.svelte';
   import Console from './components/Console.svelte';
-
-  // #/ → picker, #/x/<id> → console. A hash router keeps every URL valid
-  // without the server knowing the client's routes.
-  let hash = $state(location.hash);
-  $effect(() => {
-    const onHash = () => (hash = location.hash);
-    addEventListener('hashchange', onHash);
-    return () => removeEventListener('hashchange', onHash);
-  });
-  const exerciseId = $derived(hash.match(/^#\/x\/([\w-]+)/)?.[1] ?? null);
+  import Dialogs from './components/ui/Dialogs.svelte';
+  import Toasts from './components/ui/Toasts.svelte';
+  import { router } from './lib/router.svelte';
 </script>
 
-{#if exerciseId}
-  {#key exerciseId}
-    <Console id={exerciseId} />
+{#if router.exerciseId}
+  {#key router.exerciseId}
+    <Console id={router.exerciseId} />
   {/key}
 {:else}
   <ExercisePicker />
 {/if}
+<Dialogs />
+<Toasts />

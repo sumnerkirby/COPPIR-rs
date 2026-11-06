@@ -1,8 +1,8 @@
 //! COPPIR: a Common Operational Picture for incident response exercises.
 //!
 //! The crate is a local web server (axum) plus, with the `desktop` feature, a
-//! native window (wry) pointed at it. The frontend under `static/` is plain
-//! JavaScript and is embedded in the binary.
+//! native window (wry) pointed at it. The Svelte frontend in `web/` is built
+//! to `web/dist/` and embedded in the binary.
 
 pub mod assets;
 pub mod config;
@@ -12,7 +12,6 @@ pub mod error;
 pub mod exercise;
 pub mod guard;
 pub mod live;
-pub mod models;
 pub mod routes;
 pub mod state;
 pub mod store;
@@ -45,7 +44,6 @@ pub async fn serve(
     config: Config,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> io::Result<()> {
-    std::fs::create_dir_all(&config.scenarios_dir)?;
     let store = match &config.database {
         Some(path) => {
             if let Some(dir) = path.parent() {

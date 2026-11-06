@@ -16,6 +16,8 @@ const blank = (): Exercise => ({
   injects: {},
   thresholds: [],
   log: [],
+  annotations: {},
+  metrics: [],
   created_at: 't0',
   updated_at: 't0',
 });

@@ -6,6 +6,9 @@ import type { Applied } from './types/Applied';
 import type { Command } from './types/Command';
 import type { ExerciseSummary } from './types/ExerciseSummary';
 import type { Snapshot } from './types/Snapshot';
+import type { OsmResult } from './types/OsmResult';
+import type { Place } from './types/Place';
+import type { Taxonomy } from './types/Taxonomy';
 
 export class ApiError extends Error {
   constructor(
@@ -55,6 +58,16 @@ export const api = {
   get: (id: string) => request<Snapshot>('GET', `${base}/${id}`),
   remove: (id: string) => request<void>('DELETE', `${base}/${id}`),
   send: (id: string, command: Command) => request<Applied>('POST', `${base}/${id}/commands`, command),
+  importFile: (file: unknown, name?: string) => request<Snapshot>('POST', `${base}/import`, { file, name }),
+  duplicate: (id: string, name?: string) => request<Snapshot>('POST', `${base}/${id}/duplicate`, { name }),
+  exportUrl: (id: string) => `${base}/${id}/export`,
+  legacyScenarios: () => request<string[]>('GET', '/api/v2/legacy/scenarios'),
+  importLegacy: (name: string) => request<Snapshot>('POST', '/api/v2/legacy/scenarios/import', { name }),
+  defaultTaxonomy: () => request<Taxonomy>('GET', '/api/v2/taxonomy/default'),
+  geocode: (query: string) => request<Place[]>('POST', '/api/v2/geocode', { query }),
+  osmCategories: () => request<string[]>('GET', '/api/v2/osm/categories'),
+  osmSearch: (lat: number, lon: number, radius_mi: number, category: string) =>
+    request<OsmResult[]>('POST', '/api/v2/osm/search', { lat, lon, radius_mi, category }),
 };
 
 export function socketUrl(id: string, after?: number): string {
