@@ -22,6 +22,10 @@ struct Cli {
     #[arg(long, env = "COPPIR_SCENARIOS_DIR")]
     scenarios_dir: Option<PathBuf>,
 
+    /// The exercise database. Defaults to `coppir.db` in the per-user data directory.
+    #[arg(long, env = "COPPIR_DATABASE")]
+    database: Option<PathBuf>,
+
     /// Serve only; open the printed URL in a browser yourself.
     #[arg(long)]
     headless: bool,
@@ -34,12 +38,16 @@ fn main() -> anyhow_lite::Result {
 
     let cli = Cli::parse();
     let scenarios_dir = cli.scenarios_dir.unwrap_or_else(config::default_scenarios_dir);
-    let config = Config::new(scenarios_dir);
+    let mut config = Config::new(scenarios_dir);
+    config.database = Some(cli.database.unwrap_or_else(|| config::data_dir().join("coppir.db")));
 
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
     let listener = runtime.block_on(coppir::bind(cli.port, !cli.strict_port))?;
     let url = format!("http://{}", listener.local_addr()?);
     tracing::info!("scenarios in {}", config.scenarios_dir.display());
+    if let Some(db) = &config.database {
+        tracing::info!("database at {}", db.display());
+    }
 
     if cli.headless || !cfg!(feature = "desktop") {
         tracing::info!("serving on {url}");

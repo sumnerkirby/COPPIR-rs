@@ -58,6 +58,22 @@ To build a server-only binary with no GUI dependencies at all:
 cargo build --release --no-default-features
 ```
 
+### The v2 interface (preview)
+
+Version 2 is being built alongside the current interface; see
+[docs/DESIGN.md](docs/DESIGN.md) for where it is going. To try it, build the
+frontend once (needs Node 22+), then run the app and open `/v2/`:
+
+```bash
+npm --prefix web ci && npm --prefix web run build
+cargo run -- --headless
+```
+
+Open `http://127.0.0.1:8000/v2/`, then create an exercise or import a scenario
+file saved by the current interface. Exercises are stored in `coppir.db` in the
+per-user data directory, and every change is kept, so nothing is lost on a
+crash.
+
 ### Options
 
 | Flag | Env var | Default | |
@@ -65,6 +81,7 @@ cargo build --release --no-default-features
 | `--port` | `COPPIR_PORT` | `8000` | If it is taken, a free port is used instead |
 | `--strict-port` | | off | Fail rather than fall back to another port |
 | `--scenarios-dir` | `COPPIR_SCENARIOS_DIR` | per-user data dir | Where saved scenarios live |
+| `--database` | `COPPIR_DATABASE` | `coppir.db` in the per-user data dir | The v2 exercise database |
 | `--headless` | | off | Serve only; no window |
 
 Logging follows `RUST_LOG`, e.g. `RUST_LOG=coppir=debug`.
@@ -402,7 +419,20 @@ cargo fmt
 ```
 
 In debug builds the frontend is read from `static/` on each request, so edits
-to the HTML, CSS or JavaScript show up on reload without recompiling. See
+to the HTML, CSS or JavaScript show up on reload without recompiling.
+
+For the v2 frontend in `web/`, run the server with `cargo run -- --headless`
+and, in another shell, `npm --prefix web run dev`. Vite serves the app with hot
+reload at `http://localhost:5173/v2/` and proxies `/api` to the server. Before
+committing:
+
+```bash
+npm --prefix web run check   # svelte-check, warnings are errors
+npm --prefix web test        # vitest
+```
+
+The TypeScript types in `web/src/lib/types/` are generated from the Rust types
+by `cargo test`. Commit them with the Rust change; CI fails if they are stale. See
 [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together.
 
 ---

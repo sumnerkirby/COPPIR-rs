@@ -177,16 +177,17 @@ pub struct Inner {
     pub hub: Hub,
     pub config: crate::config::Config,
     pub http: reqwest::Client,
+    pub live: crate::live::Live,
 }
 
 impl AppState {
-    pub fn new(config: crate::config::Config) -> Self {
+    pub fn new(config: crate::config::Config, store: crate::store::Store) -> Self {
         let http = reqwest::Client::builder()
             .user_agent(crate::config::USER_AGENT)
             .connect_timeout(std::time::Duration::from_secs(10))
             .build()
             .expect("the HTTP client builds with static settings");
-        Self(Arc::new(Inner { hub: Hub::default(), config, http }))
+        Self(Arc::new(Inner { hub: Hub::default(), config, http, live: crate::live::Live::new(store) }))
     }
 }
 

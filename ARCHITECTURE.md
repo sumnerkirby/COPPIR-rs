@@ -166,6 +166,57 @@ folder with a non-clobbering name. Off-site links open in the default browser.
 `window.open('')` popups use the webview's default handling. Devtools are on in
 debug builds.
 
+## v2 (in progress)
+
+Milestone 1 of [docs/DESIGN.md](docs/DESIGN.md) adds these alongside the v1
+API, which keeps working until milestone 2 replaces it.
+
+| Module | Role |
+|---|---|
+| `exercise/model.rs` | The v2 domain: `Exercise`, `Taxonomy`, `Asset`, `Link`, `Inject`, `Threshold`, `LogEntry` |
+| `exercise/taxonomy.rs` | The default taxonomy (v1's statuses, categories and sectors) and taxonomy validation |
+| `exercise/command.rs` | `Command` and `decide`: checks a command against the exercise and returns events |
+| `exercise/event.rs` | `Event`, `Envelope` and `Exercise::apply` |
+| `exercise/import_v1.rs` | Converts a v1 or Python scenario file into an exercise |
+| `store.rs` | SQLite: `exercises` index, append-only `events`, `snapshots` every 250 events |
+| `live.rs` | One room per open exercise: decide → commit → apply → broadcast under the room lock |
+| `routes/v2.rs` | `/api/v2` and the per-exercise websocket |
+
+**Events carry results.** An event holds the entities as they are after the
+change (`AssetsUpserted` holds whole assets). Applying one is a plain upsert or
+removal, in Rust (`Exercise::apply`) and in the browser (`web/src/lib/reducer.ts`).
+That keeps replay deterministic and keeps the two reducers too simple to drift.
+
+**Commit before broadcast.** `Live::execute` decides, applies to a copy,
+commits to SQLite, then swaps the copy in and broadcasts, all under the
+exercise's lock. A failed commit leaves memory untouched. No client sees an
+event that a crash could lose.
+
+**Resumable streams.** `GET /api/v2/exercises/{id}/ws?after=<seq>` sends the
+events after `seq` (up to 1,000), then live events. Without `after`, or further
+behind than that, the client gets a `snapshot`. The client checks that every
+event is `seq + 1` and resyncs otherwise.
+
+**Typed end to end.** Every request, response and message type derives
+`ts_rs::TS`. `cargo test` writes them to `web/src/lib/types/`, and the frontend
+imports nothing else. `Command` and `Event` are discriminated unions, so a new
+event type without a case in `reducer.ts` fails `npm run check`.
+
+| Method | Path | |
+|---|---|---|
+| GET | `/api/v2/taxonomy/default` | The default taxonomy |
+| GET, POST | `/api/v2/exercises` | List / create |
+| POST | `/api/v2/exercises/import/v1` | Create from a v1 scenario file's JSON |
+| GET, DELETE | `/api/v2/exercises/{id}` | Snapshot (`{seq, exercise}`) / delete with history |
+| POST | `/api/v2/exercises/{id}/commands` | Run one `Command`; returns the events it produced |
+| GET | `/api/v2/exercises/{id}/events?after=` | The event log |
+| GET | `/api/v2/exercises/{id}/ws?after=` | Live stream |
+
+The frontend (`web/`) is Svelte 5 and TypeScript, built by Vite into
+`web/dist/`, embedded with `rust-embed`, and served at `/v2/`. The map is
+MapLibre GL with OpenFreeMap's keyless vector tiles. Assets and links are
+GeoJSON sources drawn on the GPU.
+
 ## Tests
 
 | Suite | Covers |

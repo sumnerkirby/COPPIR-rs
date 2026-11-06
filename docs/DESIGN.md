@@ -1,6 +1,6 @@
 # COPPIR v2 Design
 
-Status: draft for review · 2026-11-06
+Status: milestone 1 done · 2026-11-06
 
 ## Goal
 
@@ -167,7 +167,7 @@ from CI.
 
 Each milestone ships something runnable and keeps the test suite green.
 
-1. **Foundations**: SQLite event store, the v2 domain model with a default
+1. ✅ **Foundations**: SQLite event store, the v2 domain model with a default
    taxonomy that reproduces today's behavior, v1 scenario import, typed
    `/api/v2` with generated TS types, and a `web/` scaffold that renders a
    loaded exercise on MapLibre.

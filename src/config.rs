@@ -22,6 +22,9 @@ pub const OVERPASS_MIRRORS: &[&str] = &[
 pub struct Config {
     /// Where scenario files are written. Must already exist.
     pub scenarios_dir: PathBuf,
+    /// The SQLite database for v2 exercises. `None` keeps everything in
+    /// memory, which is what the tests use.
+    pub database: Option<PathBuf>,
     pub nominatim_url: String,
     pub overpass_mirrors: Vec<String>,
 }
@@ -30,10 +33,19 @@ impl Config {
     pub fn new(scenarios_dir: PathBuf) -> Self {
         Self {
             scenarios_dir,
+            database: None,
             nominatim_url: NOMINATIM_URL.into(),
             overpass_mirrors: OVERPASS_MIRRORS.iter().map(|s| (*s).into()).collect(),
         }
     }
+}
+
+/// The per-user data directory: `~/Library/Application Support/COPPIR` on
+/// macOS, `%APPDATA%\COPPIR\data` on Windows, `$XDG_DATA_HOME/coppir` on Linux.
+pub fn data_dir() -> PathBuf {
+    directories::ProjectDirs::from("", "", "COPPIR")
+        .map(|d| d.data_dir().to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("."))
 }
 
 /// The per-user data directory for scenarios: `~/Library/Application
@@ -43,9 +55,7 @@ impl Config {
 /// The Python build wrote next to the executable, which fails when the
 /// executable sits somewhere read-only, such as inside a signed `.app`.
 pub fn default_scenarios_dir() -> PathBuf {
-    directories::ProjectDirs::from("", "", "COPPIR")
-        .map(|d| d.data_dir().join("scenarios"))
-        .unwrap_or_else(|| PathBuf::from("scenarios"))
+    data_dir().join("scenarios")
 }
 
 /// OSM tag pairs per infrastructure category, as offered in the search panel.

@@ -1,0 +1,75 @@
+// Applies a server event to the local copy of an exercise.
+//
+// Events carry resulting state (whole assets, whole links), so this is upserts
+// and removals only — the same as `Exercise::apply` in src/exercise/event.rs.
+// Keep the two in step; `reducer.test.ts` covers every event type.
+
+import type { Envelope } from './types/Envelope';
+import type { Exercise } from './types/Exercise';
+import type { Asset } from './types/Asset';
+
+function upsertAssets(ex: Exercise, assets: Asset[]) {
+  for (const a of assets) ex.assets[a.id] = a;
+}
+
+/** Mutates `ex` in place; returns it for convenience. */
+export function apply(ex: Exercise, env: Envelope): Exercise {
+  ex.updated_at = env.at;
+  const e = env.event;
+  switch (e.type) {
+    case 'created':
+      Object.assign(ex, structuredClone(e.exercise));
+      ex.updated_at = env.at;
+      break;
+    case 'renamed':
+      ex.name = e.name;
+      ex.description = e.description;
+      break;
+    case 'taxonomy_replaced':
+      ex.taxonomy = e.taxonomy;
+      upsertAssets(ex, e.assets);
+      break;
+    case 'assets_upserted':
+      upsertAssets(ex, e.assets);
+      break;
+    case 'assets_removed':
+      for (const id of e.ids) delete ex.assets[id];
+      for (const id of e.links) delete ex.links[id];
+      break;
+    case 'link_upserted':
+      ex.links[e.link.id] = e.link;
+      break;
+    case 'link_removed':
+      delete ex.links[e.id];
+      break;
+    case 'inject_upserted':
+      ex.injects[e.inject.id] = e.inject;
+      break;
+    case 'inject_removed':
+      delete ex.injects[e.id];
+      break;
+    case 'inject_fired':
+      ex.injects[e.inject.id] = e.inject;
+      upsertAssets(ex, e.assets);
+      ex.log.push(e.entry);
+      break;
+    case 'threshold_upserted': {
+      const i = ex.thresholds.findIndex((t) => t.id === e.threshold.id);
+      if (i >= 0) ex.thresholds[i] = e.threshold;
+      else ex.thresholds.push(e.threshold);
+      break;
+    }
+    case 'threshold_removed':
+      ex.thresholds = ex.thresholds.filter((t) => t.id !== e.id);
+      break;
+    case 'logged':
+      ex.log.push(e.entry);
+      break;
+    default: {
+      // A new event type on the server without a case here fails type-checking.
+      const unhandled: never = e;
+      throw new Error(`unknown event ${JSON.stringify(unhandled)}`);
+    }
+  }
+  return ex;
+}

@@ -83,8 +83,9 @@ impl Checks {
         }
     }
 
-    fn finish(self) -> Result<(), ApiError> {
-        if self.errors.is_empty() { Ok(()) } else { Err(ApiError::Validation(self.errors)) }
+    pub fn finish(&mut self) -> Result<(), ApiError> {
+        let errors = std::mem::take(&mut self.errors);
+        if errors.is_empty() { Ok(()) } else { Err(ApiError::Validation(errors)) }
     }
 }
 

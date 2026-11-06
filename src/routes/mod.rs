@@ -7,6 +7,7 @@ pub mod osm;
 pub mod pins;
 pub mod scenarios;
 pub mod thresholds;
+pub mod v2;
 pub mod ws;
 
 use axum::{
@@ -44,7 +45,11 @@ pub fn router(app: AppState) -> Router {
         .route("/api/thresholds/{tid}", delete(thresholds::delete))
         .route("/api/geocode", post(osm::geocode))
         .route("/api/search/osm", post(osm::search))
-        .route("/ws", get(ws::upgrade));
+        .route("/ws", get(ws::upgrade))
+        .merge(v2::router())
+        .route("/v2", get(assets::serve_web))
+        .route("/v2/", get(assets::serve_web))
+        .route("/v2/{*path}", get(assets::serve_web));
 
     api.fallback(assets::serve)
         .layer(DefaultBodyLimit::max(BODY_LIMIT))

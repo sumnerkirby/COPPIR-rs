@@ -9,6 +9,29 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  web:
+    name: web (check, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+          if-no-files-found: error
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -35,9 +58,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       # The API suite needs no GUI libraries.
       - run: cargo test --no-default-features
+      - name: TypeScript bindings are up to date
+        if: runner.os == 'Linux'
+        # `cargo test` regenerates web/src/lib/types; a diff means someone
+        # changed a Rust type without committing the new bindings.
+        run: git diff --exit-code -- web/src/lib/types
 
   desktop-build:
     name: desktop build (${{ matrix.os }})
+    needs: web
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -45,6 +74,10 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
       - uses: dtolnay/rust-toolchain@stable
       - name: Install WebKitGTK
         if: runner.os == 'Linux'

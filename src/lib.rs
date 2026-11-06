@@ -9,10 +9,13 @@ pub mod config;
 #[cfg(feature = "desktop")]
 pub mod desktop;
 pub mod error;
+pub mod exercise;
 pub mod guard;
+pub mod live;
 pub mod models;
 pub mod routes;
 pub mod state;
+pub mod store;
 pub mod validate;
 
 use std::{future::Future, io, net::SocketAddr};
@@ -43,6 +46,16 @@ pub async fn serve(
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> io::Result<()> {
     std::fs::create_dir_all(&config.scenarios_dir)?;
-    let app = routes::router(AppState::new(config));
+    let store = match &config.database {
+        Some(path) => {
+            if let Some(dir) = path.parent() {
+                std::fs::create_dir_all(dir)?;
+            }
+            store::Store::open(path)
+        }
+        None => store::Store::open_in_memory(),
+    }
+    .map_err(io::Error::other)?;
+    let app = routes::router(AppState::new(config, store));
     axum::serve(listener, app).with_graceful_shutdown(shutdown).await
 }

@@ -23,11 +23,13 @@ directories = "6"
 indexmap = { version = "2", features = ["serde"] }
 reqwest = { version = "0.13", features = ["json", "form", "query"] }
 rust-embed = { version = "8", features = ["mime-guess"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_path_to_error = "0.1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "signal", "fs", "time"] }
 tracing = "0.1"
+ts-rs = { version = "12", features = ["serde-json-impl", "indexmap-impl", "no-serde-warnings"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["v4"] }
 
