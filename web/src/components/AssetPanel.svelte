@@ -26,8 +26,13 @@
   // New-asset form
   let name = $state('');
   let typeId = $state('');
+  // Start on the generic "asset" type when the taxonomy has one, so a quick
+  // add does not silently count toward a sector. The choice then sticks
+  // between adds, since this panel stays mounted.
   $effect(() => {
-    if (!typeId && types[0]) typeId = types[0].id;
+    if (!typeId || !types.some((t) => t.id === typeId)) {
+      typeId = (types.find((t) => t.id === 'asset') ?? types[0])?.id ?? '';
+    }
   });
 
   async function add(e: SubmitEvent) {
