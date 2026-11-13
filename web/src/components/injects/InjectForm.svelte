@@ -2,6 +2,8 @@
   import { useWorkspace } from '../../lib/workspace.svelte';
   import type { Effect } from '../../lib/types/Effect';
   import type { Severity } from '../../lib/types/Severity';
+  import type { Visibility } from '../../lib/types/Visibility';
+  import VisibilityPicker from '../ui/VisibilityPicker.svelte';
 
   let { ondone }: { ondone: () => void } = $props();
   const ws = useWorkspace();
@@ -14,6 +16,7 @@
   let notes = $state('');
   let severity = $state<Severity>('warning');
   let effects = $state<Effect[]>([]);
+  let audience = $state<Visibility>({ mode: 'all' });
 
   function addStatus() {
     const set = sets[0];
@@ -29,7 +32,7 @@
 
   async function save(e: SubmitEvent) {
     e.preventDefault();
-    const r = await ws.send({ type: 'add_inject', inject: { title, body, severity, effects, notes } });
+    const r = await ws.send({ type: 'add_inject', inject: { title, body, severity, audience, effects, notes } });
     if (r) ondone();
   }
 </script>
@@ -46,6 +49,8 @@
       <option value="critical">Critical</option>
     </select>
   </label>
+
+  <VisibilityPicker label="Sent to" value={audience} teams={ex.teams} onchange={(v) => (audience = v)} />
 
   <fieldset>
     <legend>When fired</legend>

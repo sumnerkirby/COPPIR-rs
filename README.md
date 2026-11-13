@@ -21,6 +21,7 @@ and OpenStreetMap lookups use the network.
 - [Injects](#injects)
 - [Decision log](#decision-log)
 - [Metrics and thresholds](#metrics-and-thresholds)
+- [The room: players and observers](#the-room-players-and-observers)
 - [Taxonomy](#taxonomy)
 - [Undo](#undo)
 - [Export](#export)
@@ -219,6 +220,39 @@ In the **Setup** tab:
 
 Metrics and thresholds belong to the exercise, so every window sees the same
 values.
+
+---
+
+## The room: players and observers
+
+By default only the machine running COPPIR can reach it. **Room** in the title
+bar opens the exercise to other devices on the same network.
+
+1. Add teams under **Setup**, for example IT, Legal and Comms.
+2. Click **Room**, then **Open the room**. COPPIR shows an address, a QR code
+   and two codes.
+3. Players scan the QR code, or go to the address and type the **player code**.
+   They enter a name and pick a team. Nothing needs installing.
+4. For the projector, open the address on that machine and use the **observer
+   code**. It shows a read-only screen with the map, the SITREP and the log.
+
+**What players see.** Each asset and each inject has a *Visible to* setting:
+everyone, chosen teams, or the facilitator only. A player's device receives
+only what their team may see. Hidden assets, queued injects and facilitator
+notes never leave your machine. Change an asset's visibility during the
+exercise and it appears on, or vanishes from, that team's map at once.
+
+**What players can do.** Players read their team's picture, receive the injects
+sent to them, and add entries to their team's log. Each entry carries the
+player's name and team. You see every team's entries.
+
+**Managing the room.** The Room panel lists who has joined and whether they are
+connected. Move a player to another team or remove them there. **New codes**
+replaces both codes; people already in stay in. **Close room** disconnects
+everyone and stops listening on the network.
+
+The connection is not encrypted. Open the room on a network you trust, such as
+the venue's own or a hotspot from your phone.
 
 ---
 

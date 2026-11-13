@@ -83,6 +83,18 @@ export function apply(ex: Exercise, env: Envelope): Exercise {
     case 'metric_removed':
       ex.metrics = ex.metrics.filter((m) => m.id !== e.id);
       break;
+    case 'team_upserted': {
+      const i = ex.teams.findIndex((t) => t.id === e.team.id);
+      if (i >= 0) ex.teams[i] = e.team;
+      else ex.teams.push(e.team);
+      break;
+    }
+    case 'team_removed':
+      ex.teams = ex.teams.filter((t) => t.id !== e.id);
+      break;
+    case 'batch':
+      for (const event of e.events) apply(ex, { ...env, event });
+      break;
     case 'undone':
       break;
     default: {

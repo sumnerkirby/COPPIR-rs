@@ -13,7 +13,16 @@ pub fn inverse(before: &Exercise, e: &Event) -> Vec<Event> {
     match e {
         // Neither can be undone: there is no state before creation, and an
         // undo is not itself undoable.
-        Event::Created { .. } | Event::Undone { .. } | Event::LogRemoved { .. } => {}
+        Event::Created { .. } | Event::Undone { .. } | Event::LogRemoved { .. } | Event::Batch { .. } => {}
+        Event::TeamUpserted { team } => out.push(match before.teams.iter().find(|t| t.id == team.id) {
+            Some(old) => Event::TeamUpserted { team: old.clone() },
+            None => Event::TeamRemoved { id: team.id.clone() },
+        }),
+        Event::TeamRemoved { id } => {
+            if let Some(old) = before.teams.iter().find(|t| &t.id == id) {
+                out.push(Event::TeamUpserted { team: old.clone() });
+            }
+        }
         Event::Renamed { .. } => {
             out.push(Event::Renamed { name: before.name.clone(), description: before.description.clone() })
         }
@@ -139,7 +148,13 @@ pub fn still_current(now: &Exercise, events: &[Event]) -> bool {
         Event::MetricUpserted { metric } => now.metrics.iter().any(|m| m == metric),
         Event::MetricRemoved { id } => now.metrics.iter().all(|m| &m.id != id),
         Event::Renamed { name, .. } => &now.name == name,
-        Event::Logged { .. } | Event::LogRemoved { .. } | Event::Created { .. } | Event::Undone { .. } => true,
+        Event::TeamUpserted { team } => now.teams.iter().any(|t| t == team),
+        Event::TeamRemoved { id } => now.teams.iter().all(|t| &t.id != id),
+        Event::Logged { .. }
+        | Event::LogRemoved { .. }
+        | Event::Created { .. }
+        | Event::Undone { .. }
+        | Event::Batch { .. } => true,
     })
 }
 

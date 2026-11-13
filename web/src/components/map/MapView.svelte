@@ -176,9 +176,14 @@
       },
     };
 
-    m.on('styleimagemissing', (e) => {
-      const spec = parseMarkerId(e.id);
-      if (spec && !m.hasImage(e.id)) m.addImage(e.id, drawMarker(spec, 2), { pixelRatio: 2 });
+    // Markers are drawn on demand: the image id carries everything needed.
+    m.setMissingStyleImageResolver((id) => {
+      const spec = parseMarkerId(id);
+      if (m.hasImage(id)) return;
+      if (spec) m.addImage(id, drawMarker(spec, 2), { pixelRatio: 2 });
+      // The base style names a few icons its sprite does not have. Give it a
+      // blank so it stops warning about them on every tile.
+      else m.addImage(id, { width: 1, height: 1, data: new Uint8Array(4) });
     });
 
     m.on('load', () => {
@@ -186,6 +191,8 @@
       m.addSource('links', { type: 'geojson', data: linkData });
       m.addSource('annotations', { type: 'geojson', data: annotationData });
       m.addSource('assets', { type: 'geojson', data: assetData, cluster: false, clusterRadius: 45, clusterMaxZoom: 13 });
+      // Heat reads its own copy: clustering would hide most points from it.
+      m.addSource('heat', { type: 'geojson', data: assetData });
       m.addSource('measure', { type: 'geojson', data: measureData });
 
       const polys: ['==', ['geometry-type'], string] = ['==', ['geometry-type'], 'Polygon'];
@@ -194,7 +201,7 @@
       m.addLayer({
         id: 'heat',
         type: 'heatmap',
-        source: 'assets',
+        source: 'heat',
         maxzoom: 17,
         paint: {
           'heatmap-weight': ['get', 'fillHeat'],
@@ -361,7 +368,7 @@
 
     m.on('contextmenu', (e: MapMouseEvent) => {
       e.preventDefault();
-      if (ws.mode.kind !== 'select') return;
+      if (ws.mode.kind !== 'select' || ws.readonly) return;
       menu = { x: e.point.x, y: e.point.y, at: geoOf(e) };
     });
 
@@ -401,6 +408,8 @@
   $effect(() => {
     const d = assetData;
     if (ready) source('assets')?.setData(d);
+    // Only keep the heat copy current while it is showing.
+    if (ready && ws.layers.heat !== 'off') source('heat')?.setData(d);
   });
   $effect(() => {
     const d = linkData;
@@ -466,13 +475,13 @@
 
 <div class="map" bind:this={container} role="application" aria-label="Exercise map"></div>
 
-{#if ready && map}
+{#if ready && map && !ws.readonly}
   <Drawing {map} />
 {/if}
 {#if ws.layers.legend}<Legend />{/if}
 {#if annotation}
   {@const a = ex.annotations[annotation]}
-  {#if a}<AnnotationPanel annotation={a} onclose={() => (annotation = null)} />{/if}
+  {#if a && !ws.readonly}<AnnotationPanel annotation={a} onclose={() => (annotation = null)} />{/if}
 {/if}
 {#if menu}
   <ContextMenu

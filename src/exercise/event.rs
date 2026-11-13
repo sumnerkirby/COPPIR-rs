@@ -8,8 +8,12 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::model::{Annotation, Asset, Exercise, Inject, Link, LogEntry, Metric, Taxonomy, Threshold};
+use super::model::{Annotation, Asset, Exercise, Inject, Link, LogEntry, Metric, Taxonomy, Team, Threshold};
 
+// Events are built, serialized and dropped; none lives in a large collection
+// for long, so the gap between the smallest and largest variant costs nothing.
+// The one that holds a whole exercise is boxed anyway.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[ts(export)]
@@ -79,6 +83,19 @@ pub enum Event {
     },
     MetricRemoved {
         id: String,
+    },
+    TeamUpserted {
+        team: Team,
+    },
+    /// Assets and injects that named the team are re-sent without it, as
+    /// ordinary upserts in the same batch.
+    TeamRemoved {
+        id: String,
+    },
+    /// Several changes delivered as one. Sent to players and observers, whose
+    /// view of a change is computed for them rather than replayed from the log.
+    Batch {
+        events: Vec<Event>,
     },
     /// Marks that the events after it, in the same batch, reverse the changes
     /// made at `seqs`. Changes no state; it is there for the after-action log.
@@ -163,6 +180,21 @@ impl Exercise {
                 None => self.metrics.push(metric.clone()),
             },
             Event::MetricRemoved { id } => self.metrics.retain(|m| &m.id != id),
+            Event::TeamUpserted { team } => match self.teams.iter_mut().find(|t| t.id == team.id) {
+                Some(t) => *t = team.clone(),
+                None => self.teams.push(team.clone()),
+            },
+            Event::TeamRemoved { id } => self.teams.retain(|t| &t.id != id),
+            Event::Batch { events } => {
+                for event in events {
+                    self.apply(&Envelope {
+                        seq: env.seq,
+                        at: env.at.clone(),
+                        actor: env.actor.clone(),
+                        event: event.clone(),
+                    });
+                }
+            }
             Event::Undone { .. } => {}
         }
     }

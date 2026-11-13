@@ -56,7 +56,10 @@
   }
 </script>
 
-<svelte:window onclick={(e) => { if (open && !(e.target as HTMLElement).closest('.toolbar')) open = null; }} />
+<svelte:window
+  onclick={(e) => { if (open && !(e.target as HTMLElement).closest('.toolbar')) open = null; }}
+  onkeydown={(e) => { if (e.key === 'Escape') { open = null; places = []; } }}
+/>
 
 <div class="toolbar">
   <form class="search" onsubmit={search}>

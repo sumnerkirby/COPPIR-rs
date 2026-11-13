@@ -9,8 +9,12 @@
 
   $effect(() =>
     ws.live.on((env) => {
-      if (env.event.type !== 'inject_fired') return;
-      shown = env.event.inject;
+      // The facilitator hears `inject_fired`; participants are sent the fired
+      // inject as an upsert in their patch.
+      const e = env.event;
+      const fired = e.type === 'inject_fired' || (e.type === 'inject_upserted' && ws.readonly && e.inject.fired_at);
+      if (!fired) return;
+      shown = e.inject;
       clearTimeout(timer);
       timer = setTimeout(() => (shown = null), 8000);
     }),

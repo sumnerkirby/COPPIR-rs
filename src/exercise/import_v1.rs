@@ -176,6 +176,8 @@ pub fn import(json: &serde_json::Value, name: &str, now: &str) -> Result<Exercis
             asset_name: l.asset_name.clone(),
             notes: l.notes.clone(),
             auto: l.auto,
+            author: String::new(),
+            visibility: Default::default(),
         })
         .collect();
 

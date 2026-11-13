@@ -23,6 +23,8 @@ export class LiveExercise {
   #retry = 1000;
   #timer: ReturnType<typeof setTimeout> | undefined;
   #closed = false;
+  /** Called whenever the connection drops, before it retries. */
+  onDrop: (() => void) | undefined;
   #listeners = new Set<(env: Envelope) => void>();
 
   constructor(readonly id: string) {
@@ -56,6 +58,7 @@ export class LiveExercise {
     ws.onmessage = (e) => this.#receive(JSON.parse(e.data as string) as ServerMessage);
     ws.onclose = () => {
       if (this.#closed) return;
+      this.onDrop?.();
       this.connection = 'offline';
       this.#timer = setTimeout(() => this.#connect(), this.#retry);
       this.#retry = Math.min(this.#retry * 2, 15000);
@@ -66,6 +69,18 @@ export class LiveExercise {
   #receive(msg: ServerMessage) {
     if (msg.kind === 'snapshot') {
       this.exercise = msg.exercise;
+      this.seq = msg.seq;
+      return;
+    }
+    if (msg.kind === 'patch') {
+      // A participant's view: the server has already worked out what changed
+      // for us, in order, so there is no sequence to check.
+      if (!this.exercise) return;
+      for (const event of msg.events) {
+        const env: Envelope = { seq: msg.seq, at: msg.at, actor: '', event };
+        apply(this.exercise, env);
+        for (const fn of this.#listeners) fn(env);
+      }
       this.seq = msg.seq;
       return;
     }

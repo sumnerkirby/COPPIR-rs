@@ -9,6 +9,10 @@ import type { Snapshot } from './types/Snapshot';
 import type { OsmResult } from './types/OsmResult';
 import type { Place } from './types/Place';
 import type { Taxonomy } from './types/Taxonomy';
+import type { JoinInfo } from './types/JoinInfo';
+import type { Me } from './types/Me';
+import type { OpenRoom } from './types/OpenRoom';
+import type { RoomStatus } from './types/RoomStatus';
 
 export class ApiError extends Error {
   constructor(
@@ -68,6 +72,21 @@ export const api = {
   osmCategories: () => request<string[]>('GET', '/api/v2/osm/categories'),
   osmSearch: (lat: number, lon: number, radius_mi: number, category: string) =>
     request<OsmResult[]>('POST', '/api/v2/osm/search', { lat, lon, radius_mi, category }),
+
+  // Who am I, and joining
+  me: () => request<Me>('GET', '/api/v2/me'),
+  joinInfo: (code: string) => request<JoinInfo>('GET', `/api/v2/join?code=${encodeURIComponent(code)}`),
+  join: (code: string, name: string, team?: string) => request<Me>('POST', '/api/v2/join', { code, name, team }),
+  leave: () => request<void>('POST', '/api/v2/leave'),
+
+  // The room, for the facilitator
+  room: () => request<RoomStatus>('GET', '/api/v2/room'),
+  openRoom: (exercise_id: string) => request<OpenRoom>('POST', '/api/v2/room/open', { exercise_id }),
+  closeRoom: () => request<void>('POST', '/api/v2/room/close'),
+  rotateCodes: () => request<OpenRoom>('POST', '/api/v2/room/codes'),
+  moveParticipant: (id: string, team: string | null) => request<void>('PATCH', `/api/v2/room/participants/${id}`, { team }),
+  kick: (id: string) => request<void>('DELETE', `/api/v2/room/participants/${id}`),
+  qrUrl: (role: 'player' | 'observer', bust: string) => `/api/v2/room/qr.svg?role=${role}&v=${encodeURIComponent(bust)}`,
 };
 
 export function socketUrl(id: string, after?: number): string {

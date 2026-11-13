@@ -95,6 +95,17 @@ impl Ws {
         }
     }
 
+    /// Whether the server hangs up within a few seconds.
+    pub async fn closed(&mut self) -> bool {
+        loop {
+            match tokio::time::timeout(Duration::from_secs(5), self.0.next()).await {
+                Ok(None) | Ok(Some(Err(_))) | Ok(Some(Ok(Message::Close(_)))) => return true,
+                Ok(Some(Ok(_))) => {}
+                Err(_) => return false,
+            }
+        }
+    }
+
     pub async fn close(mut self) {
         let _ = self.0.send(Message::Close(None)).await;
     }

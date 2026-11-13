@@ -20,6 +20,21 @@
   }
   const sectorName = (id: string | null) => (id ? (ex.taxonomy.sectors.find((s) => s.id === id)?.name ?? id) : 'All sectors');
 
+  // Teams
+  let teamName = $state('');
+  async function addTeam(e: SubmitEvent) {
+    e.preventDefault();
+    if (await ws.send({ type: 'add_team', name: teamName })) teamName = '';
+  }
+  async function removeTeam(id: string, name: string) {
+    const ok = await ui.confirm(`Delete the ${name} team?`, {
+      body: 'Anything visible only to this team becomes facilitator-only. Players on it keep their place in the room without a team.',
+      confirm: 'Delete',
+      danger: true,
+    });
+    if (ok) await ws.send({ type: 'remove_team', id });
+  }
+
   // Metrics
   let mName = $state('');
   async function addMetric(e: SubmitEvent) {
@@ -44,6 +59,22 @@
     <textarea rows="3" value={ex.description} maxlength="4000" onchange={(e) => ws.send({ type: 'rename', name: ex.name, description: e.currentTarget.value })}></textarea>
   </label>
   <button class="icon" onclick={() => (ws.showTaxonomy = true)}><Icon name="tags" size={14} /> Edit statuses, asset types and sectors…</button>
+</section>
+
+<section>
+  <h3 class="section-title">Teams</h3>
+  <p class="empty">Players join a team and see what you make visible to it. Open the room from the title bar.</p>
+  {#each ex.teams as t (t.id)}
+    <div class="row">
+      <input type="color" value={t.color} aria-label={`Colour for ${t.name}`} onchange={(e) => ws.send({ type: 'edit_team', id: t.id, color: e.currentTarget.value })} />
+      <input class="grow" value={t.name} maxlength="100" aria-label="Team name" onchange={(e) => ws.send({ type: 'edit_team', id: t.id, name: e.currentTarget.value })} />
+      <button class="ghost small" onclick={() => removeTeam(t.id, t.name)} aria-label={`Delete ${t.name}`}>✕</button>
+    </div>
+  {/each}
+  <form class="row" onsubmit={addTeam}>
+    <input class="grow" bind:value={teamName} placeholder="New team, e.g. IT, Legal, Comms" aria-label="New team name" maxlength="100" />
+    <button disabled={!teamName.trim()}>Add</button>
+  </form>
 </section>
 
 <section>

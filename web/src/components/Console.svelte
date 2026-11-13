@@ -10,6 +10,7 @@
   import TaxonomyEditor from './taxonomy/TaxonomyEditor.svelte';
   import ShortcutHelp from './console/ShortcutHelp.svelte';
   import InjectBanner from './console/InjectBanner.svelte';
+  import RoomPanel from './room/RoomPanel.svelte';
 
   let { id }: { id: string } = $props();
 
@@ -23,7 +24,7 @@
   function onkeydown(e: KeyboardEvent) {
     const typing =
       e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement;
-    if (ui.dialog || ws.showTaxonomy) return;
+    if (ui.dialog || ws.showTaxonomy || ws.showRoom) return;
     if (mod(e) && e.key.toLowerCase() === 'z' && !e.shiftKey && !typing) {
       e.preventDefault();
       ws.undo();
@@ -74,6 +75,9 @@
 
 {#if ws.showTaxonomy && ws.exercise}
   <TaxonomyEditor onclose={() => (ws.showTaxonomy = false)} />
+{/if}
+{#if ws.showRoom && ws.exercise}
+  <RoomPanel onclose={() => (ws.showRoom = false)} />
 {/if}
 {#if ws.showHelp}
   <ShortcutHelp onclose={() => (ws.showHelp = false)} />

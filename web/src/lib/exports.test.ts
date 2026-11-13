@@ -23,7 +23,7 @@ const ex = (): Exercise => ({
   injects: {},
   thresholds: [],
   log: [
-    { id: '1', at: '2026-01-01T10:00:00Z', text: 'Said "hi", then left', asset: null, asset_name: null, notes: '=SUM(A1)', auto: false },
+    { id: '1', at: '2026-01-01T10:00:00Z', text: 'Said "hi", then left', asset: null, asset_name: null, notes: '=SUM(A1)', auto: false, author: '', visibility: { mode: 'all' } },
   ],
   annotations: {},
   metrics: [],

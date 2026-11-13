@@ -25,14 +25,14 @@ struct Web;
 pub async fn serve(uri: Uri, headers: HeaderMap) -> Response {
     let path = uri.path().trim_start_matches('/');
     if let Some(file) = Web::get(path).filter(|_| !path.is_empty()) {
-        return respond(file, &headers);
+        return respond(file, &headers, path.starts_with("assets/"));
     }
     let looks_like_file = path.rsplit('/').next().is_some_and(|last| last.contains('.'));
     if looks_like_file || path.starts_with("api/") {
         return (StatusCode::NOT_FOUND, "Not found").into_response();
     }
     match Web::get("index.html") {
-        Some(index) => respond(index, &headers),
+        Some(index) => respond(index, &headers, false),
         None => (
             StatusCode::SERVICE_UNAVAILABLE,
             "The interface has not been built. Run `npm --prefix web ci && npm --prefix web run build`, then rebuild.",
@@ -41,10 +41,8 @@ pub async fn serve(uri: Uri, headers: HeaderMap) -> Response {
     }
 }
 
-fn respond(file: rust_embed::EmbeddedFile, headers: &HeaderMap) -> Response {
+fn respond(file: rust_embed::EmbeddedFile, headers: &HeaderMap, immutable: bool) -> Response {
     let etag = format!("\"{}\"", hex(&file.metadata.sha256_hash()[..16]));
-    // `no-cache` still lets the webview keep a copy; it just has to revalidate,
-    // which costs a 304 and means an upgraded binary is never served stale.
     let mut res = if headers.get(IF_NONE_MATCH).is_some_and(|v| v.as_bytes() == etag.as_bytes()) {
         StatusCode::NOT_MODIFIED.into_response()
     } else {
@@ -57,7 +55,11 @@ fn respond(file: rust_embed::EmbeddedFile, headers: &HeaderMap) -> Response {
         r
     };
     let h = res.headers_mut();
-    h.insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    // Vite names files under assets/ by content hash, so they can be cached
+    // for good. Everything else (index.html) revalidates with its ETag: a 304
+    // when unchanged, and never stale after an upgrade.
+    let cache = if immutable { "public, max-age=31536000, immutable" } else { "no-cache" };
+    h.insert(CACHE_CONTROL, HeaderValue::from_static(cache));
     if let Ok(v) = HeaderValue::from_str(&etag) {
         h.insert(ETAG, v);
     }

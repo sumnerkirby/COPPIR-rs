@@ -152,7 +152,7 @@ pub struct Team {
 }
 
 /// Who can see an asset or inject.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(tag = "mode", rename_all = "snake_case")]
 #[ts(export)]
 pub enum Visibility {
@@ -379,4 +379,10 @@ pub struct LogEntry {
     /// Written by the system (an inject firing) rather than by a person.
     #[serde(default)]
     pub auto: bool,
+    /// Who wrote it, for entries from players: "Dana (Legal)". Empty for the
+    /// facilitator's own entries.
+    #[serde(default)]
+    pub author: String,
+    #[serde(default)]
+    pub visibility: Visibility,
 }

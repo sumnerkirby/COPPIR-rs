@@ -1,6 +1,6 @@
 # COPPIR v2 Design
 
-Status: milestone 2 done · 2026-11-06
+Status: milestone 3 done · 2026-11-06
 
 ## Goal
 
@@ -174,7 +174,7 @@ Each milestone ships something runnable and keeps the test suite green.
 2. ✅ **Facilitator parity**: the new UI matches the current app (assets, links,
    log, injects, thresholds, zones and markup, exports, undo). Taxonomy
    editing. The vanilla-JS frontend and v1 API are removed.
-3. **Room access**: LAN mode, QR codes and join codes, roles, teams,
+3. ✅ **Room access**: LAN mode, QR codes and join codes, roles, teams,
    server-side visibility, the phone player view and the projector view.
 4. **Scripted exercises**: exercise clock, phases, the MSEL builder,
    scheduled and conditional injects, impact propagation, polls and

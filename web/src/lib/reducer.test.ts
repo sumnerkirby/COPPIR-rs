@@ -56,7 +56,7 @@ describe('apply', () => {
       effects: [], notes: '', created_at: 't', fired_at: null,
     };
     apply(ex, env({ type: 'inject_upserted', inject }));
-    const entry = { id: 'e', at: 't', text: 'fired', asset: null, asset_name: null, notes: '', auto: true };
+    const entry = { id: 'e', at: 't', text: 'fired', asset: null, asset_name: null, notes: '', auto: true, author: '', visibility: { mode: 'all' as const } };
     apply(ex, env({ type: 'inject_fired', inject: { ...inject, fired_at: 'now' }, assets: [asset('c')], entry }));
     expect(ex.injects.i?.fired_at).toBe('now');
     expect(Object.keys(ex.assets)).toEqual(['a', 'b', 'c']);
@@ -71,6 +71,11 @@ describe('apply', () => {
     apply(ex, env({ type: 'link_removed', id: 'nope' }));
     apply(ex, env({ type: 'taxonomy_replaced', taxonomy: { ...ex.taxonomy, fields: [] }, assets: [asset('b', 'monitored')] }));
 
+    apply(ex, env({ type: 'team_upserted', team: { id: 'it', name: 'IT', color: '#3399ff' } }));
+    apply(ex, env({ type: 'team_upserted', team: { id: 'it', name: 'IT Ops', color: '#3399ff' } }));
+    expect(ex.teams.map((t) => t.name)).toEqual(['IT Ops']);
+    apply(ex, env({ type: 'batch', events: [{ type: 'team_removed', id: 'it' }, { type: 'renamed', name: 'New', description: 'd' }] }));
+    expect(ex.teams).toEqual([]);
     expect(ex.name).toBe('New');
     expect(Object.keys(ex.assets)).toEqual(['b', 'c']);
     expect(ex.assets.b?.statuses.security).toBe('monitored');

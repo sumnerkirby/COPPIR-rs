@@ -5,6 +5,7 @@
   import type { AssetPatch } from '../../lib/types/AssetPatch';
   import type { LinkKind } from '../../lib/types/LinkKind';
   import Icon from '../ui/Icon.svelte';
+  import VisibilityPicker from '../ui/VisibilityPicker.svelte';
 
   let { asset }: { asset: Asset } = $props();
   const ws = useWorkspace();
@@ -101,6 +102,8 @@
 
   <label>Notes <textarea rows="3" value={asset.notes} maxlength="4000" onchange={(e) => edit({ notes: e.currentTarget.value })}></textarea></label>
   <label>Tags <input value={asset.tags.join(', ')} placeholder="comma, separated" onchange={(e) => edit({ tags: e.currentTarget.value.split(',') })} /></label>
+
+  <VisibilityPicker label="Visible to" value={asset.visibility} teams={ex.teams} onchange={(visibility) => edit({ visibility })} />
 
   <div class="row">
     <button class="small" onclick={place}>{asset.geo ? 'Move on map…' : 'Place on map…'}</button>

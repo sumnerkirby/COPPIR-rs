@@ -12,7 +12,10 @@ use crate::validate::FieldError;
 #[derive(Debug)]
 pub enum ApiError {
     BadRequest(String),
+    /// Not signed in to the room: the client should go and join.
+    Unauthorized,
     Forbidden(&'static str),
+    TooManyRequests(&'static str),
     NotFound(&'static str),
     Conflict(&'static str),
     UnsupportedMediaType,
@@ -40,7 +43,9 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, detail) = match self {
             Self::BadRequest(m) => (StatusCode::BAD_REQUEST, json!(m)),
+            Self::Unauthorized => (StatusCode::UNAUTHORIZED, json!("Join the room first")),
             Self::Forbidden(m) => (StatusCode::FORBIDDEN, json!(m)),
+            Self::TooManyRequests(m) => (StatusCode::TOO_MANY_REQUESTS, json!(m)),
             Self::NotFound(m) => (StatusCode::NOT_FOUND, json!(m)),
             Self::Conflict(m) => (StatusCode::CONFLICT, json!(m)),
             Self::UnsupportedMediaType => {

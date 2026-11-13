@@ -5,6 +5,7 @@
 //! to `web/dist/` and embedded in the binary.
 
 pub mod assets;
+pub mod auth;
 pub mod config;
 #[cfg(feature = "desktop")]
 pub mod desktop;
@@ -12,6 +13,7 @@ pub mod error;
 pub mod exercise;
 pub mod guard;
 pub mod live;
+pub mod room;
 pub mod routes;
 pub mod state;
 pub mod store;
@@ -54,6 +56,13 @@ pub async fn serve(
         None => store::Store::open_in_memory(),
     }
     .map_err(io::Error::other)?;
-    let app = routes::router(AppState::new(config, store));
-    axum::serve(listener, app).with_graceful_shutdown(shutdown).await
+    let state = AppState::new(config, store);
+    let app = routes::router(state.clone());
+    let _ = state.port.set(listener.local_addr()?.port());
+    let _ = state.router.set(app.clone());
+    // Handlers need the peer address: being on this machine is what makes
+    // someone the facilitator.
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
+        .with_graceful_shutdown(shutdown)
+        .await
 }

@@ -7,29 +7,36 @@ use axum::{
         ws::{Message, WebSocket},
     },
     http::{StatusCode, header},
+    middleware,
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast::error::RecvError;
 use ts_rs::TS;
 
 use crate::{
+    auth::{self, Viewer},
     error::ApiError,
-    exercise::{self, Command, Envelope, Exercise, import_v1, legacy, model::Taxonomy, taxonomy},
+    exercise::{
+        self, Command, Envelope, Event, Exercise, import_v1, legacy,
+        model::{Taxonomy, Visibility},
+        taxonomy,
+        view::Audience,
+    },
     live::Applied,
+    room::{Role, Session},
     state::{AppState, now},
     store::ExerciseSummary,
     validate::{Checks, Valid, Validate},
 };
 
-/// Every change is attributed. Until player sessions arrive, the only actor is
-/// whoever is at the facilitator's keyboard.
+/// The actor recorded for changes made at the facilitator's keyboard.
 const FACILITATOR: &str = "facilitator";
 
-pub fn router() -> Router<AppState> {
-    Router::new()
-        .route("/api/v2/taxonomy/default", get(default_taxonomy))
+pub fn router(app: AppState) -> Router<AppState> {
+    // Everything that builds or manages exercises is the facilitator's alone.
+    let facilitator = Router::new()
         .route("/api/v2/exercises", get(list).post(create))
         .route("/api/v2/exercises/import/v1", post(import))
         .route("/api/v2/exercises/import", post(import_file))
@@ -40,10 +47,17 @@ pub fn router() -> Router<AppState> {
         .route("/api/v2/geocode", post(super::osm::geocode))
         .route("/api/v2/osm/categories", get(super::osm::categories))
         .route("/api/v2/osm/search", post(super::osm::search))
-        .route("/api/v2/exercises/{id}", get(snapshot).delete(remove))
-        .route("/api/v2/exercises/{id}/commands", post(command))
+        .route("/api/v2/exercises/{id}", delete(remove))
         .route("/api/v2/exercises/{id}/events", get(events))
+        .route_layer(middleware::from_fn_with_state(app, auth::facilitator_only));
+
+    // Participants reach these too; each handler shows them only their view.
+    Router::new()
+        .route("/api/v2/taxonomy/default", get(default_taxonomy))
+        .route("/api/v2/exercises/{id}", get(snapshot))
+        .route("/api/v2/exercises/{id}/commands", post(command))
         .route("/api/v2/exercises/{id}/ws", get(ws))
+        .merge(facilitator)
 }
 
 #[derive(Serialize, TS)]
@@ -252,8 +266,13 @@ async fn legacy_import(
     Ok((StatusCode::CREATED, Json(Snapshot { seq, exercise })))
 }
 
-async fn snapshot(State(app): State<AppState>, Path(id): Path<String>) -> Result<Json<Snapshot>, ApiError> {
-    let (exercise, seq) = app.live.snapshot(&id)?;
+async fn snapshot(
+    viewer: Viewer,
+    State(app): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Snapshot>, ApiError> {
+    viewer.check_exercise(&id)?;
+    let (exercise, seq) = app.live.snapshot_for(&id, &viewer.audience())?;
     Ok(Json(Snapshot { seq, exercise }))
 }
 
@@ -263,11 +282,55 @@ async fn remove(State(app): State<AppState>, Path(id): Path<String>) -> Result<S
 }
 
 async fn command(
+    viewer: Viewer,
     State(app): State<AppState>,
     Path(id): Path<String>,
     Valid(cmd): Valid<Command>,
 ) -> Result<Json<Applied>, ApiError> {
-    Ok(Json(app.live.execute(&id, FACILITATOR, cmd)?))
+    viewer.check_exercise(&id)?;
+    match viewer {
+        Viewer::Facilitator => Ok(Json(app.live.execute(&id, FACILITATOR, cmd)?)),
+        Viewer::Session(s) if s.role == Role::Player => player_command(&app, &id, &s, cmd).map(Json),
+        Viewer::Session(_) => Err(ApiError::Forbidden("Observers cannot make changes")),
+    }
+}
+
+/// Players can add to the log, and nothing else yet. The entry is stamped
+/// with who wrote it and is visible to their team and the facilitator.
+fn player_command(app: &AppState, id: &str, s: &Session, cmd: Command) -> Result<Applied, ApiError> {
+    let Command::Log { asset, .. } = &cmd else {
+        return Err(ApiError::Forbidden("Players can only add log entries"));
+    };
+    let audience = s.audience();
+    // Naming an asset they cannot see would confirm that it exists.
+    if let Some(asset) = asset {
+        let (view, _) = app.live.snapshot_for(id, &audience)?;
+        if !view.assets.contains_key(asset) {
+            return Err(ApiError::Forbidden("You cannot see that asset"));
+        }
+    }
+    let (exercise, _) = app.live.snapshot_for(id, &Audience::Observer)?;
+    let team = s.team();
+    let team_name = team.as_ref().and_then(|t| exercise.teams.iter().find(|x| &x.id == t)).map(|t| t.name.clone());
+    let author = match &team_name {
+        Some(t) => format!("{} ({t})", s.name()),
+        None => s.name(),
+    };
+    let visibility = match team {
+        Some(t) => Visibility::Teams { teams: vec![t] },
+        None => Visibility::All,
+    };
+    let actor = format!("player:{}", s.id);
+    let applied = app.live.execute_with(id, &actor, cmd, |events| {
+        for e in events {
+            if let Event::Logged { entry } = e {
+                entry.author.clone_from(&author);
+                entry.visibility = visibility.clone();
+            }
+        }
+    })?;
+    // The player gets a receipt, not the facilitator's copy of the events.
+    Ok(Applied { seq: applied.seq, events: vec![] })
 }
 
 async fn events(
@@ -280,29 +343,84 @@ async fn events(
 }
 
 /// Connect with `?after=<seq>` to resume: the server sends only the events
-/// after it, or a fresh snapshot if that is too far back.
+/// after it, or a fresh snapshot if that is too far back. Participants always
+/// start from a snapshot of their own view.
 async fn ws(
+    viewer: Viewer,
     upgrade: WebSocketUpgrade,
     State(app): State<AppState>,
     Path(id): Path<String>,
     Query(q): Query<After>,
 ) -> Result<Response, ApiError> {
-    let (initial, rx) = app.live.subscribe(&id, q.after)?;
-    Ok(upgrade.on_upgrade(move |socket| client(socket, app, id, initial, rx)))
+    viewer.check_exercise(&id)?;
+    let session = match viewer {
+        Viewer::Facilitator => None,
+        Viewer::Session(s) => Some(s),
+    };
+    let (initial, rx) = subscribe(&app, &id, session.as_deref(), q.after)?;
+    Ok(upgrade.on_upgrade(move |socket| client(socket, app, id, session, initial, rx)))
+}
+
+type Messages = Vec<axum::extract::ws::Utf8Bytes>;
+type Receiver = tokio::sync::broadcast::Receiver<axum::extract::ws::Utf8Bytes>;
+
+fn subscribe(
+    app: &AppState,
+    id: &str,
+    session: Option<&Session>,
+    after: Option<u64>,
+) -> Result<(Messages, Receiver), ApiError> {
+    match session {
+        None => app.live.subscribe(id, after),
+        Some(s) => app.live.subscribe_view(id, &s.audience()).map(|(snapshot, rx)| (vec![snapshot], rx)),
+    }
+}
+
+/// Counts a participant's open sockets for as long as it lives.
+struct Connected(Option<std::sync::Arc<Session>>);
+
+impl Connected {
+    fn new(session: Option<std::sync::Arc<Session>>) -> Self {
+        if let Some(s) = &session {
+            s.connections.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
+        Self(session)
+    }
+}
+
+impl Drop for Connected {
+    fn drop(&mut self) {
+        if let Some(s) = &self.0 {
+            s.connections.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
 }
 
 async fn client(
     mut socket: WebSocket,
     app: AppState,
     id: String,
-    initial: Vec<axum::extract::ws::Utf8Bytes>,
-    mut rx: tokio::sync::broadcast::Receiver<axum::extract::ws::Utf8Bytes>,
+    session: Option<std::sync::Arc<Session>>,
+    initial: Messages,
+    mut rx: Receiver,
 ) {
+    let connected = Connected::new(session);
+    let session = connected.0.as_deref();
     for msg in initial {
         if socket.send(Message::Text(msg)).await.is_err() {
             return;
         }
     }
+    // Kicked, moved to another team, or the room closed: hang up. A moved
+    // client reconnects and lands in its new view. The future is created once,
+    // before the loop, so a notification between iterations is not missed.
+    let changed = async {
+        match session {
+            Some(s) => s.changed.notified().await,
+            None => std::future::pending().await,
+        }
+    };
+    tokio::pin!(changed);
     loop {
         tokio::select! {
             msg = rx.recv() => {
@@ -311,7 +429,7 @@ async fn client(
                     Err(RecvError::Lagged(_)) => {
                         // Too far behind to replay from the channel: resubscribe
                         // and send a fresh snapshot.
-                        let Ok((initial, fresh)) = app.live.subscribe(&id, None) else { break };
+                        let Ok((initial, fresh)) = subscribe(&app, &id, session, None) else { break };
                         rx = fresh;
                         let Some(snap) = initial.into_iter().next() else { break };
                         snap
@@ -323,6 +441,7 @@ async fn client(
                     break;
                 }
             }
+            () = &mut changed => break,
             incoming = socket.recv() => match incoming {
                 Some(Ok(Message::Close(_)) | Err(_)) | None => break,
                 Some(Ok(_)) => {}

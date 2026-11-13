@@ -11,7 +11,7 @@ use super::{
     event::Event,
     model::{
         Annotation, Asset, Effect, Exercise, FieldKind, GeoPoint, GraphPoint, Inject, Link, LinkKind, LogEntry, Metric,
-        NewAsset, Severity, Shape, StatusChange, Taxonomy, Threshold, Visibility,
+        NewAsset, Severity, Shape, StatusChange, Taxonomy, Team, Threshold, Visibility,
     },
     taxonomy,
 };
@@ -138,6 +138,26 @@ pub enum Command {
         value: Option<u8>,
     },
     RemoveMetric {
+        id: String,
+    },
+    AddTeam {
+        name: String,
+        #[serde(default)]
+        #[ts(optional)]
+        color: Option<String>,
+    },
+    EditTeam {
+        id: String,
+        #[serde(default)]
+        #[ts(optional)]
+        name: Option<String>,
+        #[serde(default)]
+        #[ts(optional)]
+        color: Option<String>,
+    },
+    /// Anything visible only to this team loses it from its audience; what
+    /// was visible to this team alone becomes facilitator-only, not public.
+    RemoveTeam {
         id: String,
     },
     /// Reverse the most recent change that has not been undone yet.
@@ -429,6 +449,9 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
                 asset_name,
                 notes: inject.body.clone(),
                 auto: true,
+                author: String::new(),
+                // The log line is as visible as the inject that wrote it.
+                visibility: inject.audience.clone(),
             };
             vec![Event::InjectFired { inject, assets, entry }]
         }
@@ -470,7 +493,17 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
                 None => None,
             };
             c.finish()?;
-            let entry = LogEntry { id: new_id(), at: now.to_owned(), text, asset, asset_name, notes, auto: false };
+            let entry = LogEntry {
+                id: new_id(),
+                at: now.to_owned(),
+                text,
+                asset,
+                asset_name,
+                notes,
+                auto: false,
+                author: String::new(),
+                visibility: Visibility::All,
+            };
             vec![Event::Logged { entry }]
         }
 
@@ -543,6 +576,60 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
             vec![Event::MetricRemoved { id }]
         }
 
+        Command::AddTeam { mut name, color } => {
+            c.label("name", &mut name, 100);
+            let color = color.unwrap_or_else(|| TEAM_COLORS[ex.teams.len() % TEAM_COLORS.len()].to_owned());
+            c.color("color", Some(&color));
+            if ex.teams.len() >= 24 {
+                c.fail("name", "at most 24 teams");
+            }
+            c.finish()?;
+            vec![Event::TeamUpserted { team: Team { id: new_id(), name, color } }]
+        }
+
+        Command::EditTeam { id, name, color } => {
+            let mut t = ex.teams.iter().find(|t| t.id == id).ok_or(not_found("Team not found"))?.clone();
+            if let Some(mut n) = name {
+                c.label("name", &mut n, 100);
+                t.name = n;
+            }
+            if let Some(col) = color {
+                c.color("color", Some(&col));
+                t.color = col;
+            }
+            c.finish()?;
+            vec![Event::TeamUpserted { team: t }]
+        }
+
+        Command::RemoveTeam { id } => {
+            if ex.teams.iter().all(|t| t.id != id) {
+                return Err(not_found("Team not found"));
+            }
+            let without = |v: &Visibility| -> Option<Visibility> {
+                let Visibility::Teams { teams } = v else { return None };
+                if !teams.contains(&id) {
+                    return None;
+                }
+                let rest: Vec<String> = teams.iter().filter(|t| **t != id).cloned().collect();
+                Some(if rest.is_empty() { Visibility::Facilitator } else { Visibility::Teams { teams: rest } })
+            };
+            let assets: Vec<Asset> = ex
+                .assets
+                .values()
+                .filter_map(|a| without(&a.visibility).map(|visibility| Asset { visibility, ..a.clone() }))
+                .collect();
+            let mut events = vec![Event::TeamRemoved { id: id.clone() }];
+            if !assets.is_empty() {
+                events.push(Event::AssetsUpserted { assets });
+            }
+            for i in ex.injects.values() {
+                if let Some(audience) = without(&i.audience) {
+                    events.push(Event::InjectUpserted { inject: Inject { audience, ..i.clone() } });
+                }
+            }
+            events
+        }
+
         // `Live` handles undo itself, because it needs the history of changes.
         Command::Undo => return Err(ApiError::BadRequest("Undo is not available here".into())),
     };
@@ -551,6 +638,7 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
 }
 
 pub const DEFAULT_ANNOTATION_COLOR: &str = "#00ff41";
+const TEAM_COLORS: &[&str] = &["#3399ff", "#ffaa00", "#aa88ff", "#00ccaa", "#ff6688", "#cccc33"];
 
 /// The most points one shape may have. A freehand stroke samples densely, but
 /// thousands of points is a stuck mouse, not a drawing.

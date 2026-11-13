@@ -68,8 +68,16 @@ export class Workspace {
   map: MapHandle | null = null;
   showTaxonomy = $state(false);
   showHelp = $state(false);
+  showRoom = $state(false);
 
-  constructor(id: string) {
+  /**
+   * `readonly` is the participant's console: they look, select and read, but
+   * every editing tool is off. The server enforces this too.
+   */
+  constructor(
+    id: string,
+    readonly readonly = false,
+  ) {
     this.live = new LiveExercise(id);
     $effect(() => save('layers', this.layers));
     $effect(() => save('tab', this.tab));
@@ -114,6 +122,7 @@ export class Workspace {
   }
 
   setMode(mode: Mode) {
+    if (this.readonly && mode.kind !== 'select' && mode.kind !== 'measure') return;
     if (this.mode.kind === 'pick') this.mode.resolve(null);
     this.mode = mode;
     if (mode.kind !== 'add') this.placing = null;

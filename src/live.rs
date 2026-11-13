@@ -21,6 +21,7 @@ use crate::{
     exercise::{
         Command, Envelope, Event, Exercise, decide,
         undo::{inverse, still_current},
+        view::{Audience, diff, project},
     },
     state::now,
     store::Store,
@@ -51,6 +52,14 @@ pub enum ServerMessage<'a> {
         exercise: &'a Exercise,
     },
     Event(&'a Envelope),
+    /// For players and observers: what changed in *their* view. Applied in
+    /// order; `seq` says how far the exercise has moved on.
+    Patch {
+        #[ts(type = "number")]
+        seq: u64,
+        at: &'a str,
+        events: &'a [Event],
+    },
 }
 
 impl ServerMessage<'_> {
@@ -74,6 +83,14 @@ struct RoomState {
     /// In memory only: after a restart there is nothing to undo, though the
     /// full history is still in the log.
     undo: Vec<UndoEntry>,
+    /// One projection per audience that has someone connected.
+    views: HashMap<Audience, View>,
+}
+
+/// What one audience currently sees, and the channel its clients listen on.
+struct View {
+    exercise: Exercise,
+    tx: broadcast::Sender<Utf8Bytes>,
 }
 
 pub struct Room {
@@ -113,7 +130,7 @@ impl Live {
         }
         let (exercise, seq) = self.store.load(id)?.ok_or(ApiError::NotFound("Exercise not found"))?;
         let room = Arc::new(Room {
-            state: Mutex::new(RoomState { exercise, seq, undo: Vec::new() }),
+            state: Mutex::new(RoomState { exercise, seq, undo: Vec::new(), views: HashMap::new() }),
             tx: broadcast::channel(CHANNEL_CAPACITY).0,
         });
         rooms.insert(id.to_owned(), room.clone());
@@ -151,6 +168,19 @@ impl Live {
     }
 
     pub fn execute(&self, id: &str, actor: &str, cmd: Command) -> Result<Applied, ApiError> {
+        self.execute_with(id, actor, cmd, |_| {})
+    }
+
+    /// Like [`execute`](Self::execute), with a chance to adjust the events
+    /// before they are stored. Used to stamp a player's log entry with who
+    /// wrote it, which the player's own request cannot be trusted to say.
+    pub fn execute_with(
+        &self,
+        id: &str,
+        actor: &str,
+        cmd: Command,
+        adjust: impl FnOnce(&mut Vec<Event>),
+    ) -> Result<Applied, ApiError> {
         let room = self.room(id)?;
         let mut st = room.lock();
         let at = now();
@@ -166,7 +196,9 @@ impl Live {
             events.extend(entry.inverse);
             (events, true)
         } else {
-            (decide(&st.exercise, cmd, &at)?, false)
+            let mut events = decide(&st.exercise, cmd, &at)?;
+            adjust(&mut events);
+            (events, false)
         };
         if events.is_empty() {
             return Ok(Applied { seq: st.seq, events: vec![] });
@@ -177,21 +209,36 @@ impl Live {
             .map(|(event, seq)| Envelope { seq, at: at.clone(), actor: actor.to_owned(), event })
             .collect();
 
-        // Apply to a copy first: if the commit fails, memory stays as it was.
-        // Each event's inverse is taken from the state just before it.
-        let mut next = st.exercise.clone();
+        // Apply in place, taking each event's inverse from the state just
+        // before it. Copying the whole exercise first would make every command
+        // cost as much as the exercise is large.
         let mut inverse_events = Vec::new();
         for env in &envelopes {
             if !undone {
-                let mut inv = inverse(&next, &env.event);
+                let mut inv = inverse(&st.exercise, &env.event);
                 inv.reverse();
                 inverse_events.extend(inv);
             }
-            next.apply(env);
+            st.exercise.apply(env);
         }
         inverse_events.reverse();
-        self.store.append(&next, &envelopes)?;
-        st.exercise = next;
+        if let Err(e) = self.store.append(&st.exercise, &envelopes) {
+            // The write failed, so memory is now ahead of the disk. Put memory
+            // back to what the disk holds; nothing was broadcast.
+            match self.store.load(id) {
+                Ok(Some((exercise, seq))) => {
+                    st.exercise = exercise;
+                    st.seq = seq;
+                    st.undo.clear();
+                }
+                // Cannot read either: drop the room so the next request reloads.
+                _ => {
+                    drop(st);
+                    self.rooms().remove(id);
+                }
+            }
+            return Err(e.into());
+        }
         st.seq = envelopes.last().map_or(st.seq, |e| e.seq);
         if !undone && !inverse_events.is_empty() {
             if st.undo.len() == UNDO_DEPTH {
@@ -206,6 +253,19 @@ impl Live {
 
         for env in &envelopes {
             let _ = room.tx.send(ServerMessage::Event(env).encode());
+        }
+
+        // Bring each connected audience's view up to date and send it the
+        // difference. Views nobody is listening to are dropped.
+        let RoomState { exercise, views, seq, .. } = &mut *st;
+        views.retain(|_, v| v.tx.receiver_count() > 0);
+        for (audience, view) in views.iter_mut() {
+            let next = project(exercise, audience);
+            let events = diff(&view.exercise, &next);
+            view.exercise = next;
+            if !events.is_empty() {
+                let _ = view.tx.send(ServerMessage::Patch { seq: *seq, at: &at, events: &events }.encode());
+            }
         }
         Ok(Applied { seq: st.seq, events: envelopes })
     }
@@ -232,5 +292,29 @@ impl Live {
         let messages =
             catch_up.unwrap_or_else(|| vec![ServerMessage::Snapshot { seq: st.seq, exercise: &st.exercise }.encode()]);
         Ok((messages, rx))
+    }
+
+    /// A snapshot of what `audience` may see, and a subscription to the
+    /// patches that keep it current.
+    pub fn subscribe_view(
+        &self,
+        id: &str,
+        audience: &Audience,
+    ) -> Result<(Utf8Bytes, broadcast::Receiver<Utf8Bytes>), ApiError> {
+        let room = self.room(id)?;
+        let mut st = room.lock();
+        let RoomState { exercise, views, seq, .. } = &mut *st;
+        let view = views.entry(audience.clone()).or_insert_with(|| View {
+            exercise: project(exercise, audience),
+            tx: broadcast::channel(CHANNEL_CAPACITY).0,
+        });
+        let rx = view.tx.subscribe();
+        Ok((ServerMessage::Snapshot { seq: *seq, exercise: &view.exercise }.encode(), rx))
+    }
+
+    pub fn snapshot_for(&self, id: &str, audience: &Audience) -> Result<(Exercise, u64), ApiError> {
+        let room = self.room(id)?;
+        let st = room.lock();
+        Ok((project(&st.exercise, audience), st.seq))
     }
 }

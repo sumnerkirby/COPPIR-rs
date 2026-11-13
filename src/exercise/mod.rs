@@ -12,6 +12,7 @@ pub mod legacy;
 pub mod model;
 pub mod taxonomy;
 pub mod undo;
+pub mod view;
 
 pub use command::{Command, decide};
 pub use event::{Envelope, Event};

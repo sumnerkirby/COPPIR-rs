@@ -35,6 +35,9 @@ uuid = { version = "1", features = ["v4"] }
 
 tao = { version = "0.37", optional = true }
 wry = { version = "0.57", optional = true }
+tower-http = { version = "0.7.1", features = ["compression-gzip"] }
+local-ip-address = "0.6.13"
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
 
 [dev-dependencies]
 futures-util = "0.3"

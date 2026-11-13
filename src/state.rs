@@ -9,6 +9,11 @@ pub struct Inner {
     pub config: crate::config::Config,
     pub http: reqwest::Client,
     pub live: crate::live::Live,
+    pub rooms: crate::room::Rooms,
+    /// The assembled app, so the room can serve it on LAN listeners too.
+    pub router: std::sync::OnceLock<axum::Router>,
+    /// The port the loopback listener is on; LAN listeners try the same one.
+    pub port: std::sync::OnceLock<u16>,
 }
 
 impl AppState {
@@ -18,7 +23,14 @@ impl AppState {
             .connect_timeout(std::time::Duration::from_secs(10))
             .build()
             .expect("the HTTP client builds with static settings");
-        Self(Arc::new(Inner { config, http, live: crate::live::Live::new(store) }))
+        Self(Arc::new(Inner {
+            config,
+            http,
+            live: crate::live::Live::new(store),
+            rooms: Default::default(),
+            router: Default::default(),
+            port: Default::default(),
+        }))
     }
 }
 

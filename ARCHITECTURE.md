@@ -51,7 +51,11 @@ that frontend. Exercises live in one SQLite file as append-only event logs.
 | `exercise/undo.rs` | The inverse of each event, and whether an undo is still safe |
 | `exercise/import_v1.rs`, `legacy.rs` | Read version 1 and Python scenario files into an exercise |
 | `store.rs` | SQLite: the `exercises` index, append-only `events`, `snapshots` |
-| `live.rs` | One room per open exercise: the in-memory state, the undo stack and the broadcast channel |
+| `exercise/view.rs` | What each audience may see: `project` an exercise, `diff` two projections into events |
+| `live.rs` | One room per open exercise: the in-memory state, the undo stack, the broadcast channel and one view per connected audience |
+| `room.rs` | Join codes, participant sessions, rate limiting, and this machine's LAN addresses |
+| `auth.rs` | `Viewer`: who a request comes from, and the facilitator-only middleware |
+| `routes/room.rs` | Open and close the room, QR code, join, leave, manage participants |
 | `routes/v2.rs` | `/api/v2`: exercises, commands, events, websocket, export and import |
 | `routes/osm.rs` | Place search (Nominatim) and infrastructure search (Overpass) |
 | `validate.rs` | The `Valid<T>` JSON extractor and the `Checks` accumulator |
@@ -67,7 +71,10 @@ Command ─► decide() ─► Vec<Event> ─► number them ─► apply to a c
         ─► commit to SQLite ─► swap the copy in ─► push undo entry ─► broadcast
 ```
 
-`Live::execute` does all of that under the exercise's lock.
+`Live::execute` does all of that under the exercise's lock. It applies events
+in place. If the SQLite write then fails, it reloads the exercise from disk, so
+memory never stays ahead of the log. Responses are gzip-compressed, and hashed
+frontend assets are served as immutable.
 
 - **Only `decide` can refuse.** It checks the command against the current
   exercise (does the asset exist, is the status value in the taxonomy). It
@@ -93,6 +100,43 @@ with `undo::still_current` that nothing later has overwritten what it touched.
 Then it appends `Undone { seqs }` followed by the inverse events. History is never
 rewritten. The undo stack does not survive a restart; the log does.
 
+## Room access
+
+Until the facilitator opens the room, the app listens on loopback only.
+
+**Who is asking (`auth.rs`).** A request with a valid `coppir_session` cookie is
+that participant. Otherwise a request from a loopback peer is the facilitator.
+Anything else gets a 401, and the client shows the join page. The cookie wins
+over being local, so the host can join as a player in a second browser profile.
+
+**Opening (`routes/room.rs`).** `POST /api/v2/room/open` binds one listener per
+LAN IPv4 address, on the loopback port when it is free there. Each serves the
+same router. The room holds a `watch` sender; dropping it on close stops the
+listeners. The host guard then also accepts those literal `ip:port` hosts.
+
+**Joining (`room.rs`).** A six-character code (no lookalike characters) admits
+a player or an observer. `POST /api/v2/join` returns an `HttpOnly`,
+`SameSite=Strict` cookie. Sessions live in memory. Each address gets 12 code
+attempts a minute.
+
+**Views (`exercise/view.rs`, `live.rs`).** The facilitator receives the raw
+event stream. Every other audience (observer, or a player on a given team)
+gets a *projection*: the exercise with hidden assets, their links, unfired
+injects, inject notes and effects, and other teams' log lines removed. After
+each command the room recomputes the projection for every audience that has a
+client connected, diffs it against the previous one, and sends the difference
+as a `patch` message. Revealing an asset to a team therefore arrives as an
+ordinary upsert, and hiding it as a removal. Hidden data never reaches a
+participant's device.
+
+**Participant commands.** Players may send `Log` only. The server stamps the
+entry with the player's name and team and limits its visibility to that team.
+Observers may send nothing.
+
+**Moving and removing.** Changing a player's team, kicking them, or closing the
+room fires the session's `Notify`. Its websockets close. A moved client
+reconnects and receives the snapshot of its new view.
+
 ## Storage (`store.rs`)
 
 | Table | Contents |
@@ -108,7 +152,9 @@ holds the schema version. The store refuses a database from a newer build.
 
 ## API
 
-Every route is under `/api/`. Any other path serves the frontend, with
+Every route is under `/api/`. Participants may call only `me`, `join`, `leave`,
+and the snapshot, commands and websocket routes of their own exercise. The
+rest are the facilitator's. Any other path serves the frontend, with
 `index.html` for client-side routes such as `/x/<id>`.
 
 | Method | Path | |
@@ -126,6 +172,13 @@ Every route is under `/api/`. Any other path serves the frontend, with
 | POST | `/api/v2/exercises/import/v1` | Create from a version 1 scenario's JSON |
 | GET | `/api/v2/legacy/scenarios` | Version 1 scenario files waiting in the scenarios folder |
 | POST | `/api/v2/legacy/scenarios/import` | Import one of them by name |
+| GET | `/api/v2/me` | The caller's role, name, team and exercise |
+| GET, POST | `/api/v2/join` | What a code admits to / join and receive a session cookie |
+| POST | `/api/v2/leave` | End the caller's session |
+| GET | `/api/v2/room` | Room status and participants |
+| POST | `/api/v2/room/open`, `/close`, `/codes` | Open, close, or issue new codes |
+| GET | `/api/v2/room/qr.svg` | QR code of the join link |
+| PATCH, DELETE | `/api/v2/room/participants/{id}` | Move to a team or rename / remove |
 | POST | `/api/v2/geocode` | Place search |
 | GET | `/api/v2/osm/categories` | Infrastructure categories |
 | POST | `/api/v2/osm/search` | Infrastructure near a point |
@@ -205,6 +258,7 @@ browser. Devtools are on in debug builds.
 |---|---|
 | Rust unit tests | Validation, taxonomy checks, undo inverses for every command, store replay with and without snapshots, v1 import, Overpass and Nominatim parsing, host checks |
 | `tests/v2.rs` | The API and websocket against a real server on a random port: commands, races, resume, undo, export and import, legacy import |
+| `tests/room.rs` | Joining, roles, per-team snapshots and live patches, player log stamping, moving and kicking, and access over the real LAN address |
 | `tests/security.rs` | The origin and host guard, content types, SPA fallback, upstream failures |
 | `web/src/**/*.test.ts` | The reducer (every event type), geometry, marker ids and icon names, exports |
 

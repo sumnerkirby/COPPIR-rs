@@ -15,20 +15,22 @@
 //! Requests without an `Origin` (curl, the seed script, same-origin GETs) pass.
 
 use axum::{
-    extract::Request,
+    extract::{Request, State},
     http::header::{HOST, ORIGIN},
     middleware::Next,
     response::{IntoResponse, Response},
 };
 
-use crate::error::ApiError;
+use crate::{error::ApiError, state::AppState};
 
-pub async fn local_only(req: Request, next: Next) -> Response {
+pub async fn local_only(State(app): State<AppState>, req: Request, next: Next) -> Response {
     let headers = req.headers();
     let Some(host) = headers.get(HOST).and_then(|h| h.to_str().ok()) else {
         return ApiError::BadRequest("Missing Host header".into()).into_response();
     };
-    if !is_loopback_host(host) {
+    // While the room is open, the LAN addresses it listens on are allowed too.
+    // They are literal IPs, so a rebinding page still cannot name them.
+    if !is_loopback_host(host) && !app.rooms.lan_hosts().iter().any(|h| h == host) {
         return ApiError::Forbidden("Host not allowed").into_response();
     }
     if let Some(origin) = headers.get(ORIGIN) {

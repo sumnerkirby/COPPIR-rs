@@ -6,7 +6,22 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 export default defineConfig({
   base: '/',
   plugins: [svelte()],
-  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        // Keep the big libraries in their own files: they change rarely, so
+        // browsers keep them cached across app updates.
+        manualChunks(id: string) {
+          if (id.includes('node_modules/maplibre-gl')) return 'maplibre';
+          if (id.includes('node_modules/lucide')) return 'icons';
+          if (id.includes('node_modules/terra-draw')) return 'draw';
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': {
