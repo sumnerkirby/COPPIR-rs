@@ -18,7 +18,7 @@ and OpenStreetMap lookups use the network.
 - [The map](#the-map)
 - [Assets and links](#assets-and-links)
 - [SITREP strip](#sitrep-strip)
-- [Injects](#injects)
+- [The script](#the-script)
 - [Decision log](#decision-log)
 - [Metrics and thresholds](#metrics-and-thresholds)
 - [The room: players and observers](#the-room-players-and-observers)
@@ -180,20 +180,75 @@ any code change.
 
 ---
 
-## Injects
+## The script
 
-Injects are scripted events that the facilitator queues before the exercise and
-fires during it. In the **Injects** tab, **New inject** takes:
+The **Script** tab holds everything that happens during the exercise: phases,
+injects and polls. **Timeline** lays the same script out against the clock.
+
+### The exercise clock and phases
+
+The clock in the title bar belongs to the exercise, not to one window. Every
+facilitator window, player phone and projector shows the same time. Start and
+pause it with the play button. Its menu sets the time, begins any phase, or
+resets for a new run.
+
+**Phases** are the planned stages, such as Detection, Containment, Eradication
+and Recovery, each with a planned length. Add them under **Phases** in the
+Script tab. The title bar shows the current phase, and **→ next** begins the
+next one.
+
+### Injects
+
+An inject is a scripted event. **+ Inject** takes:
 
 - a title and the text players see;
 - a severity: info, warning or critical;
-- any number of effects: change an asset's status, or create a new asset at a
-  point you click;
-- facilitator notes, which players do not see.
+- **Sent to**: everyone, chosen teams, or the facilitator only;
+- **Fires**: when you fire it; at a time on the exercise clock; a number of
+  minutes after a phase begins; or when something happens (an asset reaches a
+  status, another inject fires, a threshold is breached, or a poll closes with
+  a given answer);
+- **When fired, also**: change an asset's status, show a hidden asset to a
+  team, create a new asset, open a poll, or begin a phase;
+- facilitator notes, which players never see.
 
-**Fire** applies every effect at once, writes an automatic log entry, and shows
-a banner across the map in every window. An inject fires only once. Undo takes
-the whole firing back.
+COPPIR fires scheduled and conditional injects on its own, the moment their
+trigger is met. Chains resolve at once: if one inject's firing sets off
+another, both fire together. Firing applies every effect, writes an automatic
+log entry, and shows a banner in every window that may see it. An inject fires
+only once.
+
+**Fire now** fires any inject by hand. **Disarm** stops a scheduled or
+conditional inject from firing by itself until you **Arm** it again. Undoing an
+automatic firing also disarms the inject, so it does not fire again straight
+away.
+
+### Branching with polls
+
+A poll puts a decision to the players: a question, a few answers, optionally a
+written answer, and optionally a time limit. Polls start as drafts. Open one
+yourself, or let an inject open it.
+
+Players answer on their phones and can change their answer until the poll
+closes. Each team sees its own team's answers. Everyone sees the totals once
+it closes. To branch the script, give each path an inject that fires "when the
+poll closes with" that answer. When the poll closes, by time or by your hand,
+the winning path fires. On a tie, every tied path fires.
+
+### The timeline
+
+The timeline shows the planned phases as bands and each scheduled inject at its
+minute, with a line for now. Drag an inject sideways to move it. Click one to
+edit it. Injects that wait for a condition or for you are listed below it.
+
+### Impact rules
+
+Under **Setup**, impact rules spread a status change along links. For example:
+"when Operational becomes Offline or Critical, anything that depends on it
+becomes Degraded". The change follows the chain of dependencies, never makes
+anything better than it already is, and writes one facilitator-only log entry
+that lists what changed and why. One undo takes back the change and its
+knock-on effects together.
 
 ---
 
@@ -243,7 +298,7 @@ notes never leave your machine. Change an asset's visibility during the
 exercise and it appears on, or vanishes from, that team's map at once.
 
 **What players can do.** Players read their team's picture, receive the injects
-sent to them, and add entries to their team's log. Each entry carries the
+sent to them, answer polls, and add entries to their team's log. Each entry carries the
 player's name and team. You see every team's entries.
 
 **Managing the room.** The Room panel lists who has joined and whether they are

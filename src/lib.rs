@@ -60,6 +60,18 @@ pub async fn serve(
     let app = routes::router(state.clone());
     let _ = state.port.set(listener.local_addr()?.port());
     let _ = state.router.set(app.clone());
+    // The script engine's clock: scheduled injects and poll deadlines.
+    let ticking = state.clone();
+    tokio::spawn(async move {
+        let mut every = tokio::time::interval(std::time::Duration::from_secs(1));
+        every.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            every.tick().await;
+            // Off the async threads: a tick takes locks and may write to disk.
+            let app = ticking.clone();
+            let _ = tokio::task::spawn_blocking(move || app.live.tick()).await;
+        }
+    });
     // Handlers need the peer address: being on this machine is what makes
     // someone the facilitator.
     axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())

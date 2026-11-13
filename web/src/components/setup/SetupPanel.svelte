@@ -4,6 +4,7 @@
   import type { Severity } from '../../lib/types/Severity';
   import Icon from '../ui/Icon.svelte';
   import MetricWheel from '../MetricWheel.svelte';
+  import ImpactRules from './ImpactRules.svelte';
 
   const ws = useWorkspace();
   const ex = $derived(ws.exercise!);
@@ -122,6 +123,8 @@
     </div>
   </form>
 </section>
+
+<ImpactRules />
 
 <style>
   section { display: grid; gap: 8px; }

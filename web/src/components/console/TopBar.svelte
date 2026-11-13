@@ -5,7 +5,7 @@
   import { ui } from '../../lib/ui.svelte';
   import { useWorkspace } from '../../lib/workspace.svelte';
   import Icon from '../ui/Icon.svelte';
-  import Clock from './Clock.svelte';
+  import ExerciseClock from './ExerciseClock.svelte';
 
   const ws = useWorkspace();
   const ex = $derived(ws.exercise);
@@ -43,7 +43,7 @@
   <a href="/" class="brand" onclick={(e) => { e.preventDefault(); router.go('/'); }} aria-label="All exercises">COPPIR</a>
   <button class="ghost name" onclick={rename} title="Rename">{ex?.name ?? 'Loading…'}</button>
   <span class="conn {ws.live.connection}" role="status" aria-label="Connection {ws.live.connection}" title="Connection: {ws.live.connection}"></span>
-  <Clock id={ws.live.id} />
+  {#if ex}<ExerciseClock />{/if}
   <div class="spacer"></div>
   <button class="ghost icon" onclick={() => (ws.showRoom = true)} title="Let people join from their own devices" aria-label="Room"><Icon name="users" /> Room</button>
   <button class="ghost icon" onclick={() => ws.undo()} title="Undo (Ctrl/⌘+Z)" aria-label="Undo"><Icon name="undo-2" /> Undo</button>

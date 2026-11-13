@@ -1,6 +1,6 @@
 # COPPIR v2 Design
 
-Status: milestone 3 done · 2026-11-06
+Status: milestone 4 done · 2026-11-06
 
 ## Goal
 
@@ -176,7 +176,7 @@ Each milestone ships something runnable and keeps the test suite green.
    editing. The vanilla-JS frontend and v1 API are removed.
 3. ✅ **Room access**: LAN mode, QR codes and join codes, roles, teams,
    server-side visibility, the phone player view and the projector view.
-4. **Scripted exercises**: exercise clock, phases, the MSEL builder,
+4. ✅ **Scripted exercises**: exercise clock, phases, the MSEL builder,
    scheduled and conditional injects, impact propagation, polls and
    decisions.
 5. **Topology and customization**: the graph view, custom fields, branding

@@ -51,6 +51,8 @@ that frontend. Exercises live in one SQLite file as append-only event logs.
 | `exercise/undo.rs` | The inverse of each event, and whether an undo is still safe |
 | `exercise/import_v1.rs`, `legacy.rs` | Read version 1 and Python scenario files into an exercise |
 | `store.rs` | SQLite: the `exercises` index, append-only `events`, `snapshots` |
+| `exercise/engine.rs` | The script engine: which injects are due and which polls have run out of time |
+| `exercise/impact.rs` | Spreads a status change along links by the exercise's impact rules |
 | `exercise/view.rs` | What each audience may see: `project` an exercise, `diff` two projections into events |
 | `live.rs` | One room per open exercise: the in-memory state, the undo stack, the broadcast channel and one view per connected audience |
 | `room.rs` | Join codes, participant sessions, rate limiting, and this machine's LAN addresses |
@@ -91,6 +93,44 @@ frontend assets are served as immutable.
   events in `seq` order, and a client that subscribes takes its snapshot and
   subscription at the same moment.
 
+### The script engine
+
+`engine::due` looks at the exercise and the wall clock and returns ordinary
+commands: `ClosePoll` for polls past their deadline, then `FireInject` for each
+armed inject whose trigger is met. A trigger is one of these:
+
+- a time on the exercise clock;
+- some minutes after a phase began, measured from the latest `phase_log`
+  entry for that phase;
+- a condition: an asset status, another inject having fired, a threshold
+  breached, or a closed poll's winning answer.
+
+After every command, `Live` runs the engine under the same lock until it
+returns nothing, capped at 50 rounds. Each command it runs is decided and
+committed like anyone else's, with actor `engine`, and is undoable on its own.
+A chain of conditional injects therefore resolves within the request that
+started it. A background task calls `Live::tick` once a second. It runs the
+engine only for exercises waiting on time: a running clock with scheduled
+injects, or an open poll with a deadline.
+
+The clock is `elapsed_ms` plus the time since `running_since`. The server
+computes it from the wall clock; browsers do the same between updates.
+
+Undoing an automatic firing would leave the inject's condition still true, so
+the inverse also disarms the inject. The facilitator re-arms it on purpose.
+
+**Impact rules.** `SetStatus` and `FireInject` pass the assets they change to
+`impact::propagate`. It follows links of the rule's kind from provider to
+dependant, transitively, and sets a dependant only when the new value scores
+lower than its current one. A set of visited (asset, rule) pairs stops cycles.
+The knock-on changes join the same `AssetsUpserted` event, with one
+facilitator-only `Logged` entry listing them, so one undo reverses everything.
+
+**Polls.** A response stores the participant's session id, name and team; the
+latest response from each participant counts, and `results` is recomputed with
+every response. Players get the poll once it is open, their own team's
+answers, and totals only once it closes.
+
 ### Undo
 
 Before `apply` runs each event, `undo::inverse` computes the events that
@@ -129,7 +169,8 @@ as a `patch` message. Revealing an asset to a team therefore arrives as an
 ordinary upsert, and hiding it as a removal. Hidden data never reaches a
 participant's device.
 
-**Participant commands.** Players may send `Log` only. The server stamps the
+**Participant commands.** Players may send `Log` and `Respond` only. For
+`Respond`, the server fills in who is answering; the request cannot set it. The server stamps the
 entry with the player's name and team and limits its visibility to that team.
 Observers may send nothing.
 
@@ -258,6 +299,7 @@ browser. Devtools are on in debug builds.
 |---|---|
 | Rust unit tests | Validation, taxonomy checks, undo inverses for every command, store replay with and without snapshots, v1 import, Overpass and Nominatim parsing, host checks |
 | `tests/v2.rs` | The API and websocket against a real server on a random port: commands, races, resume, undo, export and import, legacy import |
+| `tests/script.rs` | A scheduled inject firing by itself, chains within a request, undo disarming, impact through the API, players answering polls and the branch firing, what participants see of the script |
 | `tests/room.rs` | Joining, roles, per-team snapshots and live patches, player log stamping, moving and kicking, and access over the real LAN address |
 | `tests/security.rs` | The origin and host guard, content types, SPA fallback, upstream failures |
 | `web/src/**/*.test.ts` | The reducer (every event type), geometry, marker ids and icon names, exports |

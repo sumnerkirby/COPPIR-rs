@@ -19,7 +19,9 @@ use crate::{
     auth::{self, Viewer},
     error::ApiError,
     exercise::{
-        self, Command, Envelope, Event, Exercise, import_v1, legacy,
+        self, Command, Envelope, Event, Exercise,
+        command::Responder,
+        import_v1, legacy,
         model::{Taxonomy, Visibility},
         taxonomy,
         view::Audience,
@@ -298,8 +300,14 @@ async fn command(
 /// Players can add to the log, and nothing else yet. The entry is stamped
 /// with who wrote it and is visible to their team and the facilitator.
 fn player_command(app: &AppState, id: &str, s: &Session, cmd: Command) -> Result<Applied, ApiError> {
+    if let Command::Respond { poll, option, text, .. } = cmd {
+        let by = Responder { participant: s.id.clone(), name: s.name(), team: s.team() };
+        let cmd = Command::Respond { poll, option, text, by: Some(by) };
+        let applied = app.live.execute(id, &format!("player:{}", s.id), cmd)?;
+        return Ok(Applied { seq: applied.seq, events: vec![] });
+    }
     let Command::Log { asset, .. } = &cmd else {
-        return Err(ApiError::Forbidden("Players can only add log entries"));
+        return Err(ApiError::Forbidden("Players can only add log entries and answer polls"));
     };
     let audience = s.audience();
     // Naming an asset they cannot see would confirm that it exists.

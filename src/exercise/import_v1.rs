@@ -149,6 +149,8 @@ pub fn import(json: &serde_json::Value, name: &str, now: &str) -> Result<Exercis
                 notes: String::new(),
                 created_at: i.created_at.clone(),
                 fired_at: i.triggered_at.clone(),
+                trigger: Default::default(),
+                armed: true,
             },
         );
     }

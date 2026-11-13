@@ -8,7 +8,10 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::model::{Annotation, Asset, Exercise, Inject, Link, LogEntry, Metric, Taxonomy, Team, Threshold};
+use super::model::{
+    Annotation, Asset, Clock, Exercise, ImpactRule, Inject, Link, LogEntry, Metric, Phase, PhaseEntry, Poll, Taxonomy,
+    Team, Threshold,
+};
 
 // Events are built, serialized and dropped; none lives in a large collection
 // for long, so the gap between the smallest and largest variant costs nothing.
@@ -91,6 +94,27 @@ pub enum Event {
     /// ordinary upserts in the same batch.
     TeamRemoved {
         id: String,
+    },
+    ClockChanged {
+        clock: Clock,
+    },
+    PhasesReplaced {
+        phases: Vec<Phase>,
+    },
+    PhaseEntered {
+        entry: PhaseEntry,
+    },
+    PhaseLogReplaced {
+        log: Vec<PhaseEntry>,
+    },
+    PollUpserted {
+        poll: Poll,
+    },
+    PollRemoved {
+        id: String,
+    },
+    ImpactRulesReplaced {
+        rules: Vec<ImpactRule>,
     },
     /// Several changes delivered as one. Sent to players and observers, whose
     /// view of a change is computed for them rather than replayed from the log.
@@ -185,6 +209,17 @@ impl Exercise {
                 None => self.teams.push(team.clone()),
             },
             Event::TeamRemoved { id } => self.teams.retain(|t| &t.id != id),
+            Event::ClockChanged { clock } => self.clock = clock.clone(),
+            Event::PhasesReplaced { phases } => self.phases.clone_from(phases),
+            Event::PhaseEntered { entry } => self.phase_log.push(entry.clone()),
+            Event::PhaseLogReplaced { log } => self.phase_log.clone_from(log),
+            Event::PollUpserted { poll } => {
+                self.polls.insert(poll.id.clone(), poll.clone());
+            }
+            Event::PollRemoved { id } => {
+                self.polls.shift_remove(id);
+            }
+            Event::ImpactRulesReplaced { rules } => self.impact_rules.clone_from(rules),
             Event::Batch { events } => {
                 for event in events {
                     self.apply(&Envelope {

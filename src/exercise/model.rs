@@ -37,6 +37,20 @@ pub struct Exercise {
     /// Facilitator-defined percentage wheels (resources, comms readiness…).
     #[serde(default)]
     pub metrics: Vec<Metric>,
+    /// The exercise clock, shared by everyone and kept by the server.
+    #[serde(default)]
+    pub clock: Clock,
+    /// The planned stages, in order.
+    #[serde(default)]
+    pub phases: Vec<Phase>,
+    /// Each time a phase began, in order. The last entry is the current phase.
+    #[serde(default)]
+    pub phase_log: Vec<PhaseEntry>,
+    #[serde(default)]
+    pub polls: IndexMap<String, Poll>,
+    /// How a status change spreads along links.
+    #[serde(default)]
+    pub impact_rules: Vec<ImpactRule>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -273,6 +287,175 @@ pub struct Inject {
     pub created_at: String,
     #[serde(default)]
     pub fired_at: Option<String>,
+    /// When the server fires it on its own. `Manual` waits for the facilitator.
+    #[serde(default)]
+    pub trigger: Trigger,
+    /// A disarmed inject keeps its trigger but the server will not fire it.
+    /// Undoing an automatic firing disarms it, so it does not fire again at once.
+    #[serde(default = "yes")]
+    pub armed: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[ts(export)]
+pub enum Trigger {
+    #[default]
+    Manual,
+    /// At a point on the exercise clock.
+    At { minutes: f64 },
+    /// A while after a phase begins.
+    Phase { phase: String, delay_minutes: f64 },
+    /// As soon as something becomes true.
+    When { condition: Condition },
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[ts(export)]
+pub enum Condition {
+    /// An asset reaches a status.
+    AssetStatus { asset: String, set: String, value: String },
+    /// Another inject has fired: chains injects into a sequence.
+    InjectFired { inject: String },
+    /// An alert threshold is breached.
+    ThresholdBreached { threshold: String },
+    /// A poll has closed and this option won (or tied for first).
+    PollChoice { poll: String, option: String },
+}
+
+/// The exercise clock. Elapsed time is `elapsed_ms`, plus the time since
+/// `running_since` while it runs.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct Clock {
+    #[ts(type = "number")]
+    pub elapsed_ms: u64,
+    #[serde(default)]
+    pub running_since: Option<String>,
+}
+
+impl Clock {
+    /// Elapsed exercise time at wall time `now` (RFC 3339).
+    pub fn elapsed_at(&self, now: &str) -> u64 {
+        let Some(since) = &self.running_since else { return self.elapsed_ms };
+        let (Ok(a), Ok(b)) = (chrono::DateTime::parse_from_rfc3339(since), chrono::DateTime::parse_from_rfc3339(now))
+        else {
+            return self.elapsed_ms;
+        };
+        self.elapsed_ms + u64::try_from((b - a).num_milliseconds()).unwrap_or(0)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct Phase {
+    pub id: String,
+    pub name: String,
+    pub color: String,
+    /// How long it is planned to last; drives the timeline, not the clock.
+    pub target_minutes: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct PhaseEntry {
+    pub phase: String,
+    pub at: String,
+    #[ts(type = "number")]
+    pub elapsed_ms: u64,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum PollState {
+    #[default]
+    Draft,
+    Open,
+    Closed,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct PollOption {
+    pub id: String,
+    pub label: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct PollResponse {
+    /// The participant's session id: one response each, the latest counts.
+    pub participant: String,
+    pub name: String,
+    #[serde(default)]
+    pub team: Option<String>,
+    #[serde(default)]
+    pub option: Option<String>,
+    #[serde(default)]
+    pub text: String,
+    pub at: String,
+}
+
+/// A decision put to the players.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct Poll {
+    pub id: String,
+    pub question: String,
+    #[serde(default)]
+    pub options: Vec<PollOption>,
+    /// Whether players can add a free-text answer.
+    #[serde(default)]
+    pub allow_text: bool,
+    #[serde(default)]
+    pub audience: Visibility,
+    #[serde(default)]
+    pub state: PollState,
+    /// Closes itself this long after opening; `None` waits for the facilitator.
+    #[serde(default)]
+    pub duration_minutes: Option<u32>,
+    #[serde(default)]
+    pub opened_at: Option<String>,
+    #[serde(default)]
+    pub closes_at: Option<String>,
+    #[serde(default)]
+    pub closed_at: Option<String>,
+    #[serde(default)]
+    pub responses: Vec<PollResponse>,
+    /// Option id → count, kept current with `responses`.
+    #[serde(default)]
+    pub results: std::collections::BTreeMap<String, u32>,
+}
+
+impl Poll {
+    /// The options with the most votes, if anyone voted.
+    pub fn winners(&self) -> Vec<&str> {
+        let max = self.results.values().copied().max().unwrap_or(0);
+        if max == 0 {
+            return vec![];
+        }
+        self.results.iter().filter(|(_, n)| **n == max).map(|(k, _)| k.as_str()).collect()
+    }
+}
+
+/// When an asset's `set` status becomes one of `when`, everything that relies
+/// on it through a link of this kind gets `then_value` in `then_set`, unless
+/// it is already worse.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct ImpactRule {
+    pub id: String,
+    pub kind: LinkKind,
+    pub set: String,
+    pub when: Vec<String>,
+    pub then_set: String,
+    pub then_value: String,
 }
 
 /// What firing an inject does to the picture.
@@ -280,8 +463,25 @@ pub struct Inject {
 #[serde(tag = "type", rename_all = "snake_case")]
 #[ts(export)]
 pub enum Effect {
-    SetStatus { asset: String, set: String, value: String },
-    CreateAsset { asset: NewAsset },
+    SetStatus {
+        asset: String,
+        set: String,
+        value: String,
+    },
+    CreateAsset {
+        asset: NewAsset,
+    },
+    /// Change who can see an asset: bring a hidden one into play.
+    RevealAsset {
+        asset: String,
+        visibility: Visibility,
+    },
+    OpenPoll {
+        poll: String,
+    },
+    EnterPhase {
+        phase: String,
+    },
 }
 
 /// The fields a caller supplies for a new asset; the server fills in the rest.

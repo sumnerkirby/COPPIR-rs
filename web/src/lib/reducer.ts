@@ -92,6 +92,27 @@ export function apply(ex: Exercise, env: Envelope): Exercise {
     case 'team_removed':
       ex.teams = ex.teams.filter((t) => t.id !== e.id);
       break;
+    case 'clock_changed':
+      ex.clock = e.clock;
+      break;
+    case 'phases_replaced':
+      ex.phases = e.phases;
+      break;
+    case 'phase_entered':
+      ex.phase_log.push(e.entry);
+      break;
+    case 'phase_log_replaced':
+      ex.phase_log = e.log;
+      break;
+    case 'poll_upserted':
+      ex.polls[e.poll.id] = e.poll;
+      break;
+    case 'poll_removed':
+      delete ex.polls[e.id];
+      break;
+    case 'impact_rules_replaced':
+      ex.impact_rules = e.rules;
+      break;
     case 'batch':
       for (const event of e.events) apply(ex, { ...env, event });
       break;

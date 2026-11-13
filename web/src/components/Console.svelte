@@ -11,6 +11,7 @@
   import ShortcutHelp from './console/ShortcutHelp.svelte';
   import InjectBanner from './console/InjectBanner.svelte';
   import RoomPanel from './room/RoomPanel.svelte';
+  import Timeline from './injects/Timeline.svelte';
 
   let { id }: { id: string } = $props();
 
@@ -24,7 +25,7 @@
   function onkeydown(e: KeyboardEvent) {
     const typing =
       e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement;
-    if (ui.dialog || ws.showTaxonomy || ws.showRoom) return;
+    if (ui.dialog || ws.showTaxonomy || ws.showRoom || ws.showTimeline) return;
     if (mod(e) && e.key.toLowerCase() === 'z' && !e.shiftKey && !typing) {
       e.preventDefault();
       ws.undo();
@@ -75,6 +76,9 @@
 
 {#if ws.showTaxonomy && ws.exercise}
   <TaxonomyEditor onclose={() => (ws.showTaxonomy = false)} />
+{/if}
+{#if ws.showTimeline && ws.exercise}
+  <Timeline onclose={() => (ws.showTimeline = false)} />
 {/if}
 {#if ws.showRoom && ws.exercise}
   <RoomPanel onclose={() => (ws.showRoom = false)} />

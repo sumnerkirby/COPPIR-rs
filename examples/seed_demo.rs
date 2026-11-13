@@ -184,6 +184,37 @@ async fn main() -> Result {
                "geometry": {"type": "Polygon", "coordinates": [ring]}}))
     .await?;
     println!("extras:      3 metrics, 1 cordon");
+
+    // The script: phases, an impact rule, and a branch on a decision.
+    cmd(json!({"type": "set_phases", "phases": [
+        {"id": "", "name": "Detection", "color": "#3399ff", "target_minutes": 20},
+        {"id": "", "name": "Containment", "color": "#ffaa00", "target_minutes": 30},
+        {"id": "", "name": "Eradication", "color": "#ff6633", "target_minutes": 25},
+        {"id": "", "name": "Recovery", "color": "#33cc99", "target_minutes": 20},
+    ]}))
+    .await?;
+    cmd(json!({"type": "set_impact_rules", "rules": [{"id": "", "kind": "depends_on", "set": "operational",
+        "when": ["offline", "critical"], "then_set": "operational", "then_value": "degraded"}]}))
+    .await?;
+    let poll = cmd(json!({"type": "add_poll", "poll": {"question": "The water authority demands payment. Do you pay?",
+        "options": ["Pay the ransom", "Refuse and restore from backup"], "allow_text": true, "duration_minutes": 10}}))
+    .await?;
+    let poll = &poll["events"][0]["event"]["poll"];
+    let (poll_id, pay, refuse) =
+        (poll["id"].clone(), poll["options"][0]["id"].clone(), poll["options"][1]["id"].clone());
+    cmd(json!({"type": "add_inject", "inject": {"title": "Extortion demand", "severity": "critical",
+        "body": "A second note sets a 10-minute deadline and asks for 40 BTC.",
+        "trigger": {"type": "at", "minutes": 25}, "effects": [{"type": "open_poll", "poll": poll_id}]}}))
+    .await?;
+    cmd(json!({"type": "add_inject", "inject": {"title": "Payment traced", "severity": "warning",
+        "body": "Treasury flags the payment; decryptor only partly works.",
+        "trigger": {"type": "when", "condition": {"type": "poll_choice", "poll": poll_id, "option": pay}}}}))
+    .await?;
+    cmd(json!({"type": "add_inject", "inject": {"title": "Data leak threatened", "severity": "critical",
+        "body": "Attackers post a sample of customer records and threaten to publish the rest.",
+        "trigger": {"type": "when", "condition": {"type": "poll_choice", "poll": poll_id, "option": refuse}}}}))
+    .await?;
+    println!("script:      4 phases, 1 impact rule, 1 poll with two branches");
     println!("open:        {}/x/{id}", api.base);
     Ok(())
 }

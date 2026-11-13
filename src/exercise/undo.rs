@@ -14,6 +14,23 @@ pub fn inverse(before: &Exercise, e: &Event) -> Vec<Event> {
         // Neither can be undone: there is no state before creation, and an
         // undo is not itself undoable.
         Event::Created { .. } | Event::Undone { .. } | Event::LogRemoved { .. } | Event::Batch { .. } => {}
+        Event::ClockChanged { .. } => out.push(Event::ClockChanged { clock: before.clock.clone() }),
+        Event::PhasesReplaced { .. } => out.push(Event::PhasesReplaced { phases: before.phases.clone() }),
+        Event::PhaseEntered { .. } | Event::PhaseLogReplaced { .. } => {
+            out.push(Event::PhaseLogReplaced { log: before.phase_log.clone() })
+        }
+        Event::PollUpserted { poll } => out.push(match before.polls.get(&poll.id) {
+            Some(old) => Event::PollUpserted { poll: old.clone() },
+            None => Event::PollRemoved { id: poll.id.clone() },
+        }),
+        Event::PollRemoved { id } => {
+            if let Some(old) = before.polls.get(id) {
+                out.push(Event::PollUpserted { poll: old.clone() });
+            }
+        }
+        Event::ImpactRulesReplaced { .. } => {
+            out.push(Event::ImpactRulesReplaced { rules: before.impact_rules.clone() })
+        }
         Event::TeamUpserted { team } => out.push(match before.teams.iter().find(|t| t.id == team.id) {
             Some(old) => Event::TeamUpserted { team: old.clone() },
             None => Event::TeamRemoved { id: team.id.clone() },
@@ -59,7 +76,13 @@ pub fn inverse(before: &Exercise, e: &Event) -> Vec<Event> {
         }
         Event::InjectFired { inject, assets, entry } => {
             if let Some(old) = before.injects.get(&inject.id) {
-                out.push(Event::InjectUpserted { inject: old.clone() });
+                let mut old = old.clone();
+                // Disarm a scheduled or conditional inject, or the server
+                // would fire it again the moment the undo lands.
+                if old.trigger != crate::exercise::model::Trigger::Manual {
+                    old.armed = false;
+                }
+                out.push(Event::InjectUpserted { inject: old });
             }
             restore_assets(before, assets, &mut out);
             out.push(Event::LogRemoved { id: entry.id.clone() });
@@ -149,6 +172,13 @@ pub fn still_current(now: &Exercise, events: &[Event]) -> bool {
         Event::MetricRemoved { id } => now.metrics.iter().all(|m| &m.id != id),
         Event::Renamed { name, .. } => &now.name == name,
         Event::TeamUpserted { team } => now.teams.iter().any(|t| t == team),
+        Event::ClockChanged { clock } => &now.clock == clock,
+        Event::PhasesReplaced { phases } => &now.phases == phases,
+        Event::PhaseEntered { entry } => now.phase_log.last() == Some(entry),
+        Event::PhaseLogReplaced { log } => &now.phase_log == log,
+        Event::PollUpserted { poll } => now.polls.get(&poll.id) == Some(poll),
+        Event::PollRemoved { id } => !now.polls.contains_key(id),
+        Event::ImpactRulesReplaced { rules } => &now.impact_rules == rules,
         Event::TeamRemoved { id } => now.teams.iter().all(|t| &t.id != id),
         Event::Logged { .. }
         | Event::LogRemoved { .. }

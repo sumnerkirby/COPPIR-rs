@@ -19,7 +19,7 @@ use ts_rs::TS;
 use crate::{
     error::ApiError,
     exercise::{
-        Command, Envelope, Event, Exercise, decide,
+        Command, Envelope, Event, Exercise, decide, engine,
         undo::{inverse, still_current},
         view::{Audience, diff, project},
     },
@@ -30,6 +30,25 @@ use crate::{
 /// Clients further behind than this get a fresh snapshot instead of replay.
 pub const MAX_CATCH_UP: u64 = 1000;
 const CHANNEL_CAPACITY: usize = 1024;
+/// The actor recorded for what the script engine does on its own.
+pub const ENGINE: &str = "engine";
+const ENGINE_ROUNDS: usize = 50;
+
+/// Bring each connected audience's view up to date and send it the
+/// difference. Views nobody is listening to are dropped.
+fn publish_views(st: &mut RoomState, at: &str) {
+    let RoomState { exercise, views, seq, .. } = st;
+    views.retain(|_, v| v.tx.receiver_count() > 0);
+    for (audience, view) in views.iter_mut() {
+        let next = project(exercise, audience);
+        let events = diff(&view.exercise, &next);
+        view.exercise = next;
+        if !events.is_empty() {
+            let _ = view.tx.send(ServerMessage::Patch { seq: *seq, at, events: &events }.encode());
+        }
+    }
+}
+
 /// How many changes back undo can reach.
 pub const UNDO_DEPTH: usize = 100;
 
@@ -185,7 +204,7 @@ impl Live {
         let mut st = room.lock();
         let at = now();
         let undoing = matches!(cmd, Command::Undo);
-        let (events, undone) = if undoing {
+        let events = if undoing {
             let entry = st.undo.pop().ok_or(ApiError::Conflict("Nothing to undo"))?;
             if !still_current(&st.exercise, &entry.events) {
                 // Put it back: it may become undoable again if the later change is undone first.
@@ -194,19 +213,40 @@ impl Live {
             }
             let mut events = vec![Event::Undone { seqs: entry.seqs.clone() }];
             events.extend(entry.inverse);
-            (events, true)
+            events
         } else {
             let mut events = decide(&st.exercise, cmd, &at)?;
             adjust(&mut events);
-            (events, false)
+            events
         };
         if events.is_empty() {
             return Ok(Applied { seq: st.seq, events: vec![] });
         }
+        let envelopes = self.commit(id, &room, &mut st, actor, events, &at, !undoing)?;
+        // Whatever this change set off: conditional injects, a chain of them.
+        self.run_engine(id, &room, &mut st);
+        publish_views(&mut st, &at);
+        Ok(Applied { seq: envelopes.last().map_or(st.seq, |e| e.seq), events: envelopes })
+    }
+
+    /// Number, apply, store and broadcast one batch of events, and remember
+    /// how to undo it. On a failed write, memory is put back to what the disk
+    /// holds and nothing is broadcast.
+    #[allow(clippy::too_many_arguments)]
+    fn commit(
+        &self,
+        id: &str,
+        room: &Room,
+        st: &mut RoomState,
+        actor: &str,
+        events: Vec<Event>,
+        at: &str,
+        undoable: bool,
+    ) -> Result<Vec<Envelope>, ApiError> {
         let envelopes: Vec<Envelope> = events
             .into_iter()
             .zip(st.seq + 1..)
-            .map(|(event, seq)| Envelope { seq, at: at.clone(), actor: actor.to_owned(), event })
+            .map(|(event, seq)| Envelope { seq, at: at.to_owned(), actor: actor.to_owned(), event })
             .collect();
 
         // Apply in place, taking each event's inverse from the state just
@@ -214,7 +254,7 @@ impl Live {
         // cost as much as the exercise is large.
         let mut inverse_events = Vec::new();
         for env in &envelopes {
-            if !undone {
+            if undoable {
                 let mut inv = inverse(&st.exercise, &env.event);
                 inv.reverse();
                 inverse_events.extend(inv);
@@ -223,24 +263,21 @@ impl Live {
         }
         inverse_events.reverse();
         if let Err(e) = self.store.append(&st.exercise, &envelopes) {
-            // The write failed, so memory is now ahead of the disk. Put memory
-            // back to what the disk holds; nothing was broadcast.
             match self.store.load(id) {
                 Ok(Some((exercise, seq))) => {
                     st.exercise = exercise;
                     st.seq = seq;
                     st.undo.clear();
                 }
-                // Cannot read either: drop the room so the next request reloads.
+                // Cannot read either: forget the room so the next request reloads it.
                 _ => {
-                    drop(st);
                     self.rooms().remove(id);
                 }
             }
             return Err(e.into());
         }
         st.seq = envelopes.last().map_or(st.seq, |e| e.seq);
-        if !undone && !inverse_events.is_empty() {
+        if undoable && !inverse_events.is_empty() {
             if st.undo.len() == UNDO_DEPTH {
                 st.undo.remove(0);
             }
@@ -250,24 +287,54 @@ impl Live {
                 inverse: inverse_events,
             });
         }
-
         for env in &envelopes {
             let _ = room.tx.send(ServerMessage::Event(env).encode());
         }
+        Ok(envelopes)
+    }
 
-        // Bring each connected audience's view up to date and send it the
-        // difference. Views nobody is listening to are dropped.
-        let RoomState { exercise, views, seq, .. } = &mut *st;
-        views.retain(|_, v| v.tx.receiver_count() > 0);
-        for (audience, view) in views.iter_mut() {
-            let next = project(exercise, audience);
-            let events = diff(&view.exercise, &next);
-            view.exercise = next;
-            if !events.is_empty() {
-                let _ = view.tx.send(ServerMessage::Patch { seq: *seq, at: &at, events: &events }.encode());
+    /// Let the script engine act until it has nothing left to do. Each thing
+    /// it does is its own change, recorded as `engine`, and undoable.
+    fn run_engine(&self, id: &str, room: &Room, st: &mut RoomState) {
+        // A chain of conditional injects resolves here; the cap only stops a
+        // script that somehow keeps itself busy forever.
+        for _ in 0..ENGINE_ROUNDS {
+            let at = now();
+            let due = engine::due(&st.exercise, &at);
+            if due.is_empty() {
+                return;
+            }
+            for cmd in due {
+                match decide(&st.exercise, cmd, &at) {
+                    Ok(events) if !events.is_empty() => {
+                        if let Err(e) = self.commit(id, room, st, ENGINE, events, &at, true) {
+                            tracing::error!("engine change not saved: {e}");
+                            return;
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(e) => tracing::warn!("engine skipped a change: {e}"),
+                }
             }
         }
-        Ok(Applied { seq: st.seq, events: envelopes })
+        tracing::warn!("the script engine was still busy after {ENGINE_ROUNDS} rounds");
+    }
+
+    /// Called once a second: fire what has come due on the clock, close polls
+    /// whose time is up. Exercises with nothing timed waiting cost nothing.
+    pub fn tick(&self) {
+        let rooms: Vec<(String, Arc<Room>)> = self.rooms().iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+        for (id, room) in rooms {
+            let mut st = room.lock();
+            if !engine::waiting_on_time(&st.exercise) {
+                continue;
+            }
+            let before = st.seq;
+            self.run_engine(&id, &room, &mut st);
+            if st.seq != before {
+                publish_views(&mut st, &now());
+            }
+        }
     }
 
     /// Messages that bring a client from `after` to now, and a subscription to

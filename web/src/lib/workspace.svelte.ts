@@ -69,6 +69,9 @@ export class Workspace {
   showTaxonomy = $state(false);
   showHelp = $state(false);
   showRoom = $state(false);
+  showTimeline = $state(false);
+  /** What the Script tab is editing: an inject (by id, or a new one) or a new poll. */
+  editing = $state<{ kind: 'inject'; id?: string } | { kind: 'poll' } | null>(null);
 
   /**
    * `readonly` is the participant's console: they look, select and read, but

@@ -6,7 +6,9 @@
 //! `apply` never fails.
 
 pub mod command;
+pub mod engine;
 pub mod event;
+pub mod impact;
 pub mod import_v1;
 pub mod legacy;
 pub mod model;
@@ -66,6 +68,11 @@ pub fn blank(name: &str, description: &str, now: &str) -> Result<Exercise, ApiEr
         log: vec![],
         annotations: Default::default(),
         metrics: vec![],
+        clock: Default::default(),
+        phases: vec![],
+        phase_log: vec![],
+        polls: Default::default(),
+        impact_rules: vec![],
         created_at: now.to_owned(),
         updated_at: now.to_owned(),
     })

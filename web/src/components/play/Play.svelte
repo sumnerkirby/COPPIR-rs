@@ -12,6 +12,8 @@
   import MapView from '../map/MapView.svelte';
   import Sitrep from '../Sitrep.svelte';
   import Icon from '../ui/Icon.svelte';
+  import ExerciseClock from '../console/ExerciseClock.svelte';
+  import PlayerPoll from './PlayerPoll.svelte';
 
   let { me }: { me: Me } = $props();
   const ws = new Workspace(
@@ -30,12 +32,17 @@
     Object.values(ex?.injects ?? {}).sort((a, b) => (b.fired_at ?? '').localeCompare(a.fired_at ?? '')),
   );
   const selected = $derived(ws.selected ? ex?.assets[ws.selected] : undefined);
+  // Open polls first: they want an answer.
+  const polls = $derived(
+    Object.values(ex?.polls ?? {}).sort((a, b) => Number(b.state === 'open') - Number(a.state === 'open')),
+  );
 
   let tab = $state<'feed' | 'map' | 'log'>('feed');
   let unread = $state(0);
   $effect(() =>
     ws.live.on((env) => {
-      if (env.event.type === 'inject_upserted' && tab !== 'feed') unread += 1;
+      const t = env.event.type;
+      if ((t === 'inject_upserted' || (t === 'poll_upserted' && env.event.poll.state === 'open')) && tab !== 'feed') unread += 1;
     }),
   );
   $effect(() => {
@@ -58,6 +65,7 @@
   <header>
     <span class="brand">COPPIR</span>
     <span class="name grow">{ex?.name ?? 'Connecting…'}</span>
+    {#if ex}<ExerciseClock />{/if}
     {#if team}<span class="chip" style:--c={team.color}>{team.name}</span>{/if}
     <span class="conn {ws.live.connection}" role="status" aria-label="Connection {ws.live.connection}"></span>
     <button class="ghost" onclick={leave} aria-label="Leave"><Icon name="log-out" size={16} /></button>
@@ -68,6 +76,7 @@
       {#if tab === 'feed'}
         <Sitrep exercise={ex} />
         <section class="feed">
+          {#each polls as p (p.id)}<PlayerPoll poll={p} {me} />{/each}
           {#each injects as i (i.id)}
             <article class="inject {i.severity}">
               <div class="row"><strong class="grow">{i.title}</strong><span class="mono muted">{time(i.fired_at)}</span></div>

@@ -27,6 +27,11 @@ const ex = (): Exercise => ({
   ],
   annotations: {},
   metrics: [],
+  clock: { elapsed_ms: 0, running_since: null },
+  phases: [],
+  phase_log: [],
+  polls: {},
+  impact_rules: [],
   created_at: 't',
   updated_at: 't',
 });

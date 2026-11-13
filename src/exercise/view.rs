@@ -14,7 +14,7 @@ use std::collections::HashSet;
 
 use super::{
     event::Event,
-    model::{Exercise, Visibility},
+    model::{Exercise, PollState, Trigger, Visibility},
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -50,6 +50,9 @@ pub fn project(ex: &Exercise, audience: &Audience) -> Exercise {
         links: Default::default(),
         injects: Default::default(),
         log: vec![],
+        polls: Default::default(),
+        // How the script works is the facilitator's business.
+        impact_rules: vec![],
         ..ex.clone()
     };
     for a in ex.assets.values().filter(|a| audience.sees(&a.visibility)) {
@@ -70,8 +73,24 @@ pub fn project(ex: &Exercise, audience: &Audience) -> Exercise {
         let mut i = i.clone();
         i.notes.clear();
         i.effects.clear();
+        i.trigger = Trigger::Manual;
         i.audience = Visibility::All;
         out.injects.insert(i.id.clone(), i);
+    }
+    // Polls once they are put to the room. A player sees their own team's
+    // answers (a team decides together) and the totals only once it closes.
+    for p in ex.polls.values().filter(|p| p.state != PollState::Draft && audience.sees(&p.audience)) {
+        let mut p = p.clone();
+        let team = match audience {
+            Audience::Player { team } => Some(team.clone()),
+            _ => None,
+        };
+        p.responses.retain(|r| team.as_ref().is_some_and(|t| *t == r.team));
+        if p.state != PollState::Closed {
+            p.results.clear();
+        }
+        p.audience = Visibility::All;
+        out.polls.insert(p.id.clone(), p);
     }
     out.log = ex
         .log
@@ -158,6 +177,30 @@ pub fn diff(before: &Exercise, after: &Exercise) -> Vec<Event> {
         out.push(Event::AnnotationsRemoved { ids: gone });
     }
 
+    if before.clock != after.clock {
+        out.push(Event::ClockChanged { clock: after.clock.clone() });
+    }
+    if before.phases != after.phases {
+        out.push(Event::PhasesReplaced { phases: after.phases.clone() });
+    }
+    if before.phase_log != after.phase_log {
+        if after.phase_log.starts_with(&before.phase_log) {
+            for entry in &after.phase_log[before.phase_log.len()..] {
+                out.push(Event::PhaseEntered { entry: entry.clone() });
+            }
+        } else {
+            out.push(Event::PhaseLogReplaced { log: after.phase_log.clone() });
+        }
+    }
+    for p in after.polls.values().filter(|p| before.polls.get(&p.id) != Some(*p)) {
+        out.push(Event::PollUpserted { poll: p.clone() });
+    }
+    for id in before.polls.keys().filter(|id| !after.polls.contains_key(*id)) {
+        out.push(Event::PollRemoved { id: id.clone() });
+    }
+    if before.impact_rules != after.impact_rules {
+        out.push(Event::ImpactRulesReplaced { rules: after.impact_rules.clone() });
+    }
     for m in after.metrics.iter().filter(|m| !before.metrics.contains(m)) {
         out.push(Event::MetricUpserted { metric: m.clone() });
     }
@@ -285,6 +328,10 @@ mod tests {
             json!({"type": "remove_team", "id": legal}),
             json!({"type": "remove_assets", "ids": [public]}),
             json!({"type": "add_annotation", "shape": "point", "geometry": {"type": "Point", "coordinates": [1.0, 2.0]}}),
+            json!({"type": "set_phases", "phases": [{"id": "", "name": "Detection", "color": "#3399ff", "target_minutes": 30}]}),
+            json!({"type": "start_clock"}),
+            json!({"type": "add_poll", "poll": {"question": "Isolate?", "options": ["Yes", "No"]}}),
+            json!({"type": "reset_clock"}),
         ];
         for step in steps {
             run(&mut ex, step.clone());

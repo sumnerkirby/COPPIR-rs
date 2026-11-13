@@ -18,6 +18,11 @@ const blank = (): Exercise => ({
   log: [],
   annotations: {},
   metrics: [],
+  clock: { elapsed_ms: 0, running_since: null },
+  phases: [],
+  phase_log: [],
+  polls: {},
+  impact_rules: [],
   created_at: 't0',
   updated_at: 't0',
 });
@@ -53,7 +58,7 @@ describe('apply', () => {
 
     const inject = {
       id: 'i', title: 't', body: '', severity: 'info' as const, audience: { mode: 'all' as const },
-      effects: [], notes: '', created_at: 't', fired_at: null,
+      effects: [], notes: '', created_at: 't', fired_at: null, trigger: { type: 'manual' as const }, armed: true,
     };
     apply(ex, env({ type: 'inject_upserted', inject }));
     const entry = { id: 'e', at: 't', text: 'fired', asset: null, asset_name: null, notes: '', auto: true, author: '', visibility: { mode: 'all' as const } };
@@ -76,6 +81,20 @@ describe('apply', () => {
     expect(ex.teams.map((t) => t.name)).toEqual(['IT Ops']);
     apply(ex, env({ type: 'batch', events: [{ type: 'team_removed', id: 'it' }, { type: 'renamed', name: 'New', description: 'd' }] }));
     expect(ex.teams).toEqual([]);
+    apply(ex, env({ type: 'clock_changed', clock: { elapsed_ms: 5000, running_since: null } }));
+    apply(ex, env({ type: 'phases_replaced', phases: [{ id: 'p', name: 'Detect', color: '#3399ff', target_minutes: 10 }] }));
+    apply(ex, env({ type: 'phase_entered', entry: { phase: 'p', at: 't', elapsed_ms: 5000 } }));
+    const poll = { id: 'q', question: '?', options: [], allow_text: true, audience: { mode: 'all' as const }, state: 'open' as const,
+      duration_minutes: null, opened_at: null, closes_at: null, closed_at: null, responses: [], results: {} };
+    apply(ex, env({ type: 'poll_upserted', poll }));
+    expect(ex.polls.q?.state).toBe('open');
+    apply(ex, env({ type: 'poll_removed', id: 'q' }));
+    apply(ex, env({ type: 'phase_log_replaced', log: [] }));
+    apply(ex, env({ type: 'impact_rules_replaced', rules: [] }));
+    expect(ex.clock.elapsed_ms).toBe(5000);
+    expect(ex.phases).toHaveLength(1);
+    expect(ex.phase_log).toEqual([]);
+    expect(ex.polls).toEqual({});
     expect(ex.name).toBe('New');
     expect(Object.keys(ex.assets)).toEqual(['b', 'c']);
     expect(ex.assets.b?.statuses.security).toBe('monitored');

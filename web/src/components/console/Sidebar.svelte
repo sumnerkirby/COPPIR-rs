@@ -1,7 +1,7 @@
 <script lang="ts">
   import { useWorkspace, type Tab } from '../../lib/workspace.svelte';
   import AssetsTab from '../assets/AssetsTab.svelte';
-  import InjectsPanel from '../injects/InjectsPanel.svelte';
+  import ScriptPanel from '../injects/ScriptPanel.svelte';
   import LogPanel from '../log/LogPanel.svelte';
   import SetupPanel from '../setup/SetupPanel.svelte';
 
@@ -10,7 +10,7 @@
   const queued = $derived(Object.values(ex.injects).filter((i) => !i.fired_at).length);
   const tabs = $derived<[Tab, string, number | null][]>([
     ['assets', 'Assets', Object.keys(ex.assets).length],
-    ['injects', 'Injects', queued],
+    ['injects', 'Script', queued],
     ['log', 'Log', ex.log.length],
     ['setup', 'Setup', null],
   ]);
@@ -26,7 +26,7 @@
   </div>
   <div class="panel" role="tabpanel">
     {#if ws.tab === 'assets'}<AssetsTab />
-    {:else if ws.tab === 'injects'}<InjectsPanel />
+    {:else if ws.tab === 'injects'}<ScriptPanel />
     {:else if ws.tab === 'log'}<LogPanel />
     {:else}<SetupPanel />{/if}
   </div>

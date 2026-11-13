@@ -8,6 +8,7 @@
   import InjectBanner from '../console/InjectBanner.svelte';
   import MapView from '../map/MapView.svelte';
   import Sitrep from '../Sitrep.svelte';
+  import ExerciseClock from '../console/ExerciseClock.svelte';
 
   let { me }: { me: Me } = $props();
   const ws = new Workspace(
@@ -32,6 +33,7 @@
     <span class="brand">COPPIR</span>
     <h1 class="grow">{ex?.name ?? 'Connecting…'}</h1>
     <span class="conn {ws.live.connection}" role="status" aria-label="Connection {ws.live.connection}"></span>
+    {#if ex}<span class="big"><ExerciseClock /></span>{/if}
     <span class="mono clock">{now.toLocaleTimeString()}</span>
   </header>
   {#if ex}
@@ -57,7 +59,9 @@
   header { display: flex; align-items: center; gap: 14px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
   .brand { font-family: var(--mono); color: var(--accent); letter-spacing: 0.25em; font-weight: 700; }
   h1 { font-size: 20px; }
-  .clock { font-size: 20px; }
+  .clock { font-size: 16px; color: var(--muted); }
+  .big :global(.time) { font-size: 22px; }
+  .big :global(.phase) { font-size: 15px; }
   .conn { width: 10px; height: 10px; border-radius: 50%; background: var(--warn); }
   .conn.live { background: var(--accent); }
   .conn.offline { background: var(--danger); }

@@ -10,10 +10,12 @@ use ts_rs::TS;
 use super::{
     event::Event,
     model::{
-        Annotation, Asset, Effect, Exercise, FieldKind, GeoPoint, GraphPoint, Inject, Link, LinkKind, LogEntry, Metric,
-        NewAsset, Severity, Shape, StatusChange, Taxonomy, Team, Threshold, Visibility,
+        Annotation, Asset, Clock, Condition, Effect, Exercise, FieldKind, GeoPoint, GraphPoint, ImpactRule, Inject,
+        Link, LinkKind, LogEntry, Metric, NewAsset, Phase, PhaseEntry, Poll, PollOption, PollResponse, PollState,
+        Severity, Shape, StatusChange, Taxonomy, Team, Threshold, Trigger, Visibility,
     },
     taxonomy,
+    view::Audience,
 };
 use crate::{
     error::ApiError,
@@ -160,6 +162,58 @@ pub enum Command {
     RemoveTeam {
         id: String,
     },
+    StartClock,
+    PauseClock,
+    /// Jump the clock to a point, running or not.
+    SetClock {
+        minutes: f64,
+    },
+    /// Back to zero, stopped, with no phase begun: ready to run again.
+    ResetClock,
+    /// Replace the planned phases. New ones may have an empty id.
+    SetPhases {
+        phases: Vec<Phase>,
+    },
+    EnterPhase {
+        id: String,
+    },
+    /// Rewrite an inject that has not fired yet.
+    EditInject {
+        id: String,
+        inject: NewInject,
+    },
+    ArmInject {
+        id: String,
+        armed: bool,
+    },
+    AddPoll {
+        poll: NewPoll,
+    },
+    RemovePoll {
+        id: String,
+    },
+    OpenPoll {
+        id: String,
+    },
+    ClosePoll {
+        id: String,
+    },
+    /// A player's answer. The server fills in who is answering.
+    Respond {
+        poll: String,
+        #[serde(default)]
+        #[ts(optional)]
+        option: Option<String>,
+        #[serde(default)]
+        #[ts(optional)]
+        text: Option<String>,
+        #[serde(skip)]
+        #[ts(skip)]
+        by: Option<Responder>,
+    },
+    SetImpactRules {
+        rules: Vec<ImpactRule>,
+    },
     /// Reverse the most recent change that has not been undone yet.
     Undo,
 }
@@ -221,6 +275,36 @@ pub struct NewInject {
     #[serde(default)]
     #[ts(optional, as = "Option<String>")]
     pub notes: String,
+    #[serde(default)]
+    #[ts(optional, as = "Option<Trigger>")]
+    pub trigger: Trigger,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct NewPoll {
+    pub question: String,
+    /// Option labels, in order.
+    #[serde(default)]
+    #[ts(optional, as = "Option<Vec<String>>")]
+    pub options: Vec<String>,
+    #[serde(default)]
+    #[ts(optional, as = "Option<bool>")]
+    pub allow_text: bool,
+    #[serde(default)]
+    #[ts(optional, as = "Option<Visibility>")]
+    pub audience: Visibility,
+    #[serde(default)]
+    #[ts(optional)]
+    pub duration_minutes: Option<u32>,
+}
+
+/// Who is answering a poll; set by the server from the player's session.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Responder {
+    pub participant: String,
+    pub name: String,
+    pub team: Option<String>,
 }
 
 const NAME_MAX: usize = 200;
@@ -328,7 +412,13 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
                     changed.push(a);
                 }
             }
-            if changed.is_empty() { vec![] } else { vec![Event::AssetsUpserted { assets: changed }] }
+            if changed.is_empty() {
+                return Ok(vec![]);
+            }
+            let impact = super::impact::propagate(ex, &mut changed, now);
+            let mut events = vec![Event::AssetsUpserted { assets: changed }];
+            events.extend(impact_log(impact, now));
+            events
         }
 
         Command::RemoveAssets { ids } => {
@@ -366,27 +456,9 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
         }
 
         Command::AddInject { mut inject } => {
-            c.nested(&["inject"], |c| {
-                c.label("title", &mut inject.title, NAME_MAX);
-                c.max_len("body", &inject.body, TEXT_MAX);
-                c.max_len("notes", &inject.notes, TEXT_MAX);
-                check_visibility(ex, &inject.audience, "audience", c);
-                for (i, e) in inject.effects.iter_mut().enumerate() {
-                    c.nested(&["effects", &i.to_string()], |c| match e {
-                        Effect::SetStatus { asset, set, value } => {
-                            if !ex.assets.contains_key(asset) {
-                                c.fail("asset", "unknown asset");
-                            }
-                            check_status(&ex.taxonomy, set, value, "value", c);
-                        }
-                        Effect::CreateAsset { asset } => {
-                            c.nested(&["asset"], |c| check_new_asset(ex, &ex.taxonomy, asset, c))
-                        }
-                    });
-                }
-            });
+            c.nested(&["inject"], |c| check_inject(ex, &mut inject, c));
             c.finish()?;
-            let NewInject { title, body, severity, audience, effects, notes } = inject;
+            let NewInject { title, body, severity, audience, effects, notes, trigger } = inject;
             let inject = Inject {
                 id: new_id(),
                 title,
@@ -397,7 +469,34 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
                 notes,
                 created_at: now.to_owned(),
                 fired_at: None,
+                trigger,
+                armed: true,
             };
+            vec![Event::InjectUpserted { inject }]
+        }
+
+        Command::EditInject { id, mut inject } => {
+            let old = ex.injects.get(&id).ok_or(not_found("Inject not found"))?;
+            if old.fired_at.is_some() {
+                return Err(ApiError::Conflict("A fired inject cannot be changed"));
+            }
+            c.nested(&["inject"], |c| check_inject(ex, &mut inject, c));
+            if matches!(&inject.trigger, Trigger::When { condition: Condition::InjectFired { inject } } if *inject == id)
+            {
+                c.fail("trigger", "an inject cannot wait for itself");
+            }
+            c.finish()?;
+            let NewInject { title, body, severity, audience, effects, notes, trigger } = inject;
+            let inject = Inject { title, body, severity, audience, effects, notes, trigger, ..old.clone() };
+            vec![Event::InjectUpserted { inject }]
+        }
+
+        Command::ArmInject { id, armed } => {
+            let mut inject = ex.injects.get(&id).ok_or(not_found("Inject not found"))?.clone();
+            if inject.armed == armed {
+                return Ok(vec![]);
+            }
+            inject.armed = armed;
             vec![Event::InjectUpserted { inject }]
         }
 
@@ -413,17 +512,21 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
             }
             inject.fired_at = Some(now.to_owned());
             let mut assets: Vec<Asset> = Vec::new();
+            let mut extra = Vec::new();
             let mut target = None;
+            // Take an asset to change: the version an earlier effect already
+            // changed, if any. An asset deleted since the inject was written
+            // is skipped, not an error.
+            let take = |assets: &mut Vec<Asset>, id: &str| -> Option<Asset> {
+                match assets.iter().position(|a| a.id == id) {
+                    Some(i) => Some(assets.remove(i)),
+                    None => ex.assets.get(id).cloned(),
+                }
+            };
             for effect in &inject.effects {
                 match effect {
-                    // An asset deleted, or a status removed from the taxonomy,
-                    // since the inject was written is skipped, not an error.
                     Effect::SetStatus { asset, set, value } => {
-                        let current = assets.iter().position(|a| &a.id == asset);
-                        let Some(mut a) = current.map(|i| assets.remove(i)).or_else(|| ex.assets.get(asset).cloned())
-                        else {
-                            continue;
-                        };
+                        let Some(mut a) = take(&mut assets, asset) else { continue };
                         target.get_or_insert_with(|| (a.id.clone(), a.name.clone()));
                         if ex.taxonomy.status_sets.iter().any(|s| &s.id == set && s.value(value).is_some()) {
                             set_status(&mut a, set, value, now);
@@ -438,8 +541,24 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
                         }
                         assets.push(build_asset(&ex.taxonomy, new, now));
                     }
+                    Effect::RevealAsset { asset, visibility } => {
+                        let Some(mut a) = take(&mut assets, asset) else { continue };
+                        a.visibility = visibility.clone();
+                        assets.push(a);
+                    }
+                    Effect::OpenPoll { poll } => {
+                        if let Some(p) = ex.polls.get(poll).filter(|p| p.state == PollState::Draft) {
+                            extra.push(Event::PollUpserted { poll: open_poll(p.clone(), now) });
+                        }
+                    }
+                    Effect::EnterPhase { phase } => {
+                        if ex.phases.iter().any(|p| &p.id == phase) {
+                            extra.push(enter_phase(ex, phase, now));
+                        }
+                    }
                 }
             }
+            let impact = super::impact::propagate(ex, &mut assets, now);
             let (asset, asset_name) = target.unzip();
             let entry = LogEntry {
                 id: new_id(),
@@ -453,7 +572,202 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
                 // The log line is as visible as the inject that wrote it.
                 visibility: inject.audience.clone(),
             };
-            vec![Event::InjectFired { inject, assets, entry }]
+            let mut events = vec![Event::InjectFired { inject, assets, entry }];
+            events.extend(extra);
+            events.extend(impact_log(impact, now));
+            events
+        }
+
+        Command::StartClock => {
+            if ex.clock.running_since.is_some() {
+                return Ok(vec![]);
+            }
+            let clock = Clock { elapsed_ms: ex.clock.elapsed_ms, running_since: Some(now.to_owned()) };
+            vec![Event::ClockChanged { clock }]
+        }
+
+        Command::PauseClock => {
+            if ex.clock.running_since.is_none() {
+                return Ok(vec![]);
+            }
+            vec![Event::ClockChanged { clock: Clock { elapsed_ms: ex.clock.elapsed_at(now), running_since: None } }]
+        }
+
+        Command::SetClock { minutes } => {
+            if !(0.0..=100_000.0).contains(&minutes) {
+                c.fail("minutes", "must be between 0 and 100000");
+            }
+            c.finish()?;
+            let running_since = ex.clock.running_since.as_ref().map(|_| now.to_owned());
+            vec![Event::ClockChanged { clock: Clock { elapsed_ms: (minutes * 60_000.0) as u64, running_since } }]
+        }
+
+        Command::ResetClock => {
+            vec![Event::ClockChanged { clock: Clock::default() }, Event::PhaseLogReplaced { log: vec![] }]
+        }
+
+        Command::SetPhases { mut phases } => {
+            if phases.len() > 30 {
+                c.fail("phases", "at most 30 phases");
+            }
+            let mut seen = HashSet::new();
+            for (i, p) in phases.iter_mut().enumerate() {
+                c.nested(&["phases", &i.to_string()], |c| {
+                    c.label("name", &mut p.name, 100);
+                    c.color("color", Some(&p.color));
+                    if p.target_minutes > 10_000 {
+                        c.fail("target_minutes", "at most 10000");
+                    }
+                });
+                if p.id.is_empty() {
+                    p.id = new_id();
+                }
+                if !seen.insert(p.id.clone()) {
+                    c.fail("phases", "duplicate phase id");
+                }
+            }
+            let kept: HashSet<&str> = phases.iter().map(|p| p.id.as_str()).collect();
+            for i in ex.injects.values().filter(|i| i.fired_at.is_none()) {
+                let uses = match &i.trigger {
+                    Trigger::Phase { phase, .. } => Some(phase),
+                    _ => i.effects.iter().find_map(|e| match e {
+                        Effect::EnterPhase { phase } => Some(phase),
+                        _ => None,
+                    }),
+                };
+                if uses.is_some_and(|p| !kept.contains(p.as_str())) {
+                    c.fail("phases", format!("the inject {:?} still uses a phase this removes", i.title));
+                }
+            }
+            c.finish()?;
+            vec![Event::PhasesReplaced { phases }]
+        }
+
+        Command::EnterPhase { id } => {
+            if ex.phases.iter().all(|p| p.id != id) {
+                return Err(not_found("Phase not found"));
+            }
+            vec![enter_phase(ex, &id, now)]
+        }
+
+        Command::AddPoll { mut poll } => {
+            c.label("question", &mut poll.question, 500);
+            let mut labels = Vec::new();
+            for (i, o) in poll.options.iter_mut().enumerate() {
+                c.nested(&["options", &i.to_string()], |c| c.label("label", o, 200));
+                labels.push(o.clone());
+            }
+            if labels.is_empty() && !poll.allow_text {
+                c.fail("options", "give at least one option, or allow free text");
+            }
+            if labels.len() > 12 {
+                c.fail("options", "at most 12 options");
+            }
+            if poll.duration_minutes.is_some_and(|m| m == 0 || m > 1440) {
+                c.fail("duration_minutes", "must be between 1 and 1440");
+            }
+            check_visibility(ex, &poll.audience, "audience", &mut c);
+            c.finish()?;
+            let poll = Poll {
+                id: new_id(),
+                question: poll.question,
+                options: labels.into_iter().map(|label| PollOption { id: new_id(), label }).collect(),
+                allow_text: poll.allow_text,
+                audience: poll.audience,
+                state: PollState::Draft,
+                duration_minutes: poll.duration_minutes,
+                opened_at: None,
+                closes_at: None,
+                closed_at: None,
+                responses: vec![],
+                results: BTreeMap::new(),
+            };
+            vec![Event::PollUpserted { poll }]
+        }
+
+        Command::RemovePoll { id } => {
+            ex.polls.get(&id).ok_or(not_found("Poll not found"))?;
+            vec![Event::PollRemoved { id }]
+        }
+
+        Command::OpenPoll { id } => {
+            let p = ex.polls.get(&id).ok_or(not_found("Poll not found"))?;
+            if p.state == PollState::Open {
+                return Ok(vec![]);
+            }
+            // Reopening a closed poll keeps its answers.
+            vec![Event::PollUpserted { poll: open_poll(p.clone(), now) }]
+        }
+
+        Command::ClosePoll { id } => {
+            let mut p = ex.polls.get(&id).ok_or(not_found("Poll not found"))?.clone();
+            if p.state != PollState::Open {
+                return Ok(vec![]);
+            }
+            p.state = PollState::Closed;
+            p.closed_at = Some(now.to_owned());
+            vec![Event::PollUpserted { poll: p }]
+        }
+
+        Command::Respond { poll, option, text, by } => {
+            let by = by.ok_or(ApiError::Forbidden("Only players answer polls"))?;
+            let mut p = ex.polls.get(&poll).ok_or(not_found("Poll not found"))?.clone();
+            if !(Audience::Player { team: by.team.clone() }).sees(&p.audience) {
+                return Err(not_found("Poll not found"));
+            }
+            if p.state != PollState::Open {
+                return Err(ApiError::Conflict("This poll is not open"));
+            }
+            let text = text.unwrap_or_default().trim().to_owned();
+            if option.as_ref().is_some_and(|o| p.options.iter().all(|x| &x.id != o)) {
+                c.fail("option", "not one of this poll's options");
+            }
+            if !text.is_empty() && !p.allow_text {
+                c.fail("text", "this poll takes no free text");
+            }
+            c.max_len("text", &text, 1000);
+            if option.is_none() && text.is_empty() {
+                c.fail("option", "choose an option or write an answer");
+            }
+            c.finish()?;
+            p.responses.retain(|r| r.participant != by.participant);
+            p.responses.push(PollResponse {
+                participant: by.participant,
+                name: by.name,
+                team: by.team,
+                option,
+                text,
+                at: now.to_owned(),
+            });
+            p.results = BTreeMap::new();
+            for r in &p.responses {
+                if let Some(o) = &r.option {
+                    *p.results.entry(o.clone()).or_default() += 1;
+                }
+            }
+            vec![Event::PollUpserted { poll: p }]
+        }
+
+        Command::SetImpactRules { mut rules } => {
+            if rules.len() > 50 {
+                c.fail("rules", "at most 50 rules");
+            }
+            for (i, r) in rules.iter_mut().enumerate() {
+                c.nested(&["rules", &i.to_string()], |c| {
+                    if r.when.is_empty() {
+                        c.fail("when", "choose at least one status");
+                    }
+                    for w in &r.when {
+                        check_status(&ex.taxonomy, &r.set, w, "when", c);
+                    }
+                    check_status(&ex.taxonomy, &r.then_set, &r.then_value, "then_value", c);
+                });
+                if r.id.is_empty() {
+                    r.id = new_id();
+                }
+            }
+            c.finish()?;
+            vec![Event::ImpactRulesReplaced { rules }]
         }
 
         Command::AddThreshold { mut name, sector, below_pct, severity } => {
@@ -635,6 +949,119 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
     };
     c.finish()?;
     Ok(events)
+}
+
+/// A facilitator-only log line listing knock-on changes, if there were any.
+fn impact_log(lines: Vec<String>, now: &str) -> Option<Event> {
+    if lines.is_empty() {
+        return None;
+    }
+    let entry = LogEntry {
+        id: new_id(),
+        at: now.to_owned(),
+        text: format!("IMPACT: {} asset(s) affected", lines.len()),
+        asset: None,
+        asset_name: None,
+        notes: lines.join("\n"),
+        auto: true,
+        author: String::new(),
+        // The lines can name assets players cannot see.
+        visibility: Visibility::Facilitator,
+    };
+    Some(Event::Logged { entry })
+}
+
+fn open_poll(mut p: Poll, now: &str) -> Poll {
+    p.state = PollState::Open;
+    p.opened_at = Some(now.to_owned());
+    p.closed_at = None;
+    p.closes_at = p.duration_minutes.and_then(|m| {
+        let start = chrono::DateTime::parse_from_rfc3339(now).ok()?;
+        Some((start + chrono::Duration::minutes(i64::from(m))).to_rfc3339_opts(chrono::SecondsFormat::Micros, false))
+    });
+    p
+}
+
+fn enter_phase(ex: &Exercise, phase: &str, now: &str) -> Event {
+    Event::PhaseEntered {
+        entry: PhaseEntry { phase: phase.to_owned(), at: now.to_owned(), elapsed_ms: ex.clock.elapsed_at(now) },
+    }
+}
+
+/// Checks shared by adding and editing an inject.
+fn check_inject(ex: &Exercise, inject: &mut NewInject, c: &mut Checks) {
+    c.label("title", &mut inject.title, NAME_MAX);
+    c.max_len("body", &inject.body, TEXT_MAX);
+    c.max_len("notes", &inject.notes, TEXT_MAX);
+    check_visibility(ex, &inject.audience, "audience", c);
+    for (i, e) in inject.effects.iter_mut().enumerate() {
+        c.nested(&["effects", &i.to_string()], |c| match e {
+            Effect::SetStatus { asset, set, value } => {
+                if !ex.assets.contains_key(asset) {
+                    c.fail("asset", "unknown asset");
+                }
+                check_status(&ex.taxonomy, set, value, "value", c);
+            }
+            Effect::CreateAsset { asset } => c.nested(&["asset"], |c| check_new_asset(ex, &ex.taxonomy, asset, c)),
+            Effect::RevealAsset { asset, visibility } => {
+                if !ex.assets.contains_key(asset) {
+                    c.fail("asset", "unknown asset");
+                }
+                check_visibility(ex, visibility, "visibility", c);
+            }
+            Effect::OpenPoll { poll } => {
+                if !ex.polls.contains_key(poll) {
+                    c.fail("poll", "unknown poll");
+                }
+            }
+            Effect::EnterPhase { phase } => {
+                if ex.phases.iter().all(|p| &p.id != phase) {
+                    c.fail("phase", "unknown phase");
+                }
+            }
+        });
+    }
+    c.nested(&["trigger"], |c| match &inject.trigger {
+        Trigger::Manual => {}
+        Trigger::At { minutes } => {
+            if !(0.0..=100_000.0).contains(minutes) {
+                c.fail("minutes", "must be between 0 and 100000");
+            }
+        }
+        Trigger::Phase { phase, delay_minutes } => {
+            if ex.phases.iter().all(|p| &p.id != phase) {
+                c.fail("phase", "unknown phase");
+            }
+            if !(0.0..=100_000.0).contains(delay_minutes) {
+                c.fail("delay_minutes", "must be between 0 and 100000");
+            }
+        }
+        Trigger::When { condition } => match condition {
+            Condition::AssetStatus { asset, set, value } => {
+                if !ex.assets.contains_key(asset) {
+                    c.fail("asset", "unknown asset");
+                }
+                check_status(&ex.taxonomy, set, value, "value", c);
+            }
+            Condition::InjectFired { inject } => {
+                if !ex.injects.contains_key(inject) {
+                    c.fail("inject", "unknown inject");
+                }
+            }
+            Condition::ThresholdBreached { threshold } => {
+                if ex.thresholds.iter().all(|t| &t.id != threshold) {
+                    c.fail("threshold", "unknown threshold");
+                }
+            }
+            Condition::PollChoice { poll, option } => match ex.polls.get(poll) {
+                None => c.fail("poll", "unknown poll"),
+                Some(p) if p.options.iter().all(|o| &o.id != option) => {
+                    c.fail("option", "not one of the poll's options")
+                }
+                Some(_) => {}
+            },
+        },
+    });
 }
 
 pub const DEFAULT_ANNOTATION_COLOR: &str = "#00ff41";
