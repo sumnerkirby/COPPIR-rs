@@ -70,6 +70,8 @@ export class Workspace {
   showHelp = $state(false);
   showRoom = $state(false);
   showTimeline = $state(false);
+  /** Geographic map or topology graph. */
+  view = $state<'map' | 'graph'>(load('view', 'map'));
   /** What the Script tab is editing: an inject (by id, or a new one) or a new poll. */
   editing = $state<{ kind: 'inject'; id?: string } | { kind: 'poll' } | null>(null);
 
@@ -85,6 +87,7 @@ export class Workspace {
     $effect(() => save('layers', this.layers));
     $effect(() => save('tab', this.tab));
     $effect(() => save('drawColor', this.drawColor));
+    $effect(() => save('view', this.view));
   }
 
   get exercise() {

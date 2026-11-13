@@ -1,6 +1,6 @@
 # COPPIR v2 Design
 
-Status: milestone 4 done · 2026-11-06
+Status: milestone 5 done · 2026-11-06
 
 ## Goal
 
@@ -148,7 +148,7 @@ from CI.
 
 - **Map**: MapLibre GL JS with OpenFreeMap styles, the `pmtiles` protocol for
   offline packs, and terra-draw for zones, perimeters and markup.
-- **Graph**: Svelte Flow (`@xyflow/svelte`) with ELK auto-layout.
+- **Graph**: Svelte Flow (`@xyflow/svelte`) with dagre auto-layout. (ELK was the first plan; dagre gives the same layered layout at a fraction of the size.)
 - **Geocoding**: Photon (komoot) first, falling back to Nominatim. Overpass
   import stays.
 - **Theming**: CSS design tokens. Branding swaps the tokens and the logo. The
@@ -179,7 +179,7 @@ Each milestone ships something runnable and keeps the test suite green.
 4. ✅ **Scripted exercises**: exercise clock, phases, the MSEL builder,
    scheduled and conditional injects, impact propagation, polls and
    decisions.
-5. **Topology and customization**: the graph view, custom fields, branding
+5. ✅ **Topology and customization**: the graph view, custom fields, branding
    and banners, and built-in templates (ransomware, BEC, supply-chain
    compromise, regional utility outage).
 6. **Review**: replay, the AAR report, and offline map packs.

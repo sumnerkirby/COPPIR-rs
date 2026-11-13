@@ -1,0 +1,1003 @@
+{
+ "format": "coppir.exercise",
+ "version": 1,
+ "exported_at": "2026-01-01T00:00:00+00:00",
+ "exercise": {
+  "id": "template",
+  "name": "Business email compromise",
+  "description": "A finance team receives an urgent payment request that looks like it comes from the CEO. The exercise follows the money, the mailbox and the vendor relationship. Topology view; about 75 minutes.",
+  "taxonomy": {
+   "asset_types": [
+    {
+     "id": "person",
+     "name": "Person",
+     "icon": "user",
+     "color": "#aa88ff"
+    },
+    {
+     "id": "mailbox",
+     "name": "Mailbox",
+     "icon": "mail",
+     "color": "#3399ff"
+    },
+    {
+     "id": "idp",
+     "name": "Identity provider",
+     "icon": "key-round",
+     "color": "#aa88ff"
+    },
+    {
+     "id": "finance",
+     "name": "Finance system",
+     "icon": "banknote",
+     "color": "#33cc99"
+    },
+    {
+     "id": "bank",
+     "name": "Bank",
+     "icon": "landmark",
+     "color": "#ffb000"
+    },
+    {
+     "id": "vendor",
+     "name": "Vendor",
+     "icon": "truck",
+     "color": "#ff6688"
+    },
+    {
+     "id": "threat",
+     "name": "Threat actor",
+     "icon": "skull",
+     "color": "#ff3333"
+    }
+   ],
+   "status_sets": [
+    {
+     "id": "security",
+     "name": "Security",
+     "display": "fill",
+     "default": "clean",
+     "values": [
+      {
+       "id": "clean",
+       "label": "Clean",
+       "color": "#33cc33",
+       "glyph": "✓",
+       "score": 100
+      },
+      {
+       "id": "monitored",
+       "label": "Monitored",
+       "color": "#3399ff",
+       "glyph": "◦",
+       "score": 70
+      },
+      {
+       "id": "contained",
+       "label": "Contained",
+       "color": "#ff6600",
+       "glyph": "▪",
+       "score": 40
+      },
+      {
+       "id": "under_investigation",
+       "label": "Under Investigation",
+       "color": "#ffaa00",
+       "glyph": "?",
+       "score": 15
+      },
+      {
+       "id": "compromised",
+       "label": "Compromised",
+       "color": "#ff3333",
+       "glyph": "✕",
+       "score": 0
+      }
+     ]
+    },
+    {
+     "id": "operational",
+     "name": "Operational",
+     "display": "ring",
+     "default": "healthy",
+     "values": [
+      {
+       "id": "healthy",
+       "label": "Healthy",
+       "color": "#00ff41",
+       "glyph": "solid",
+       "score": 100
+      },
+      {
+       "id": "degraded",
+       "label": "Degraded",
+       "color": "#ffd700",
+       "glyph": "dashed",
+       "score": 60
+      },
+      {
+       "id": "critical",
+       "label": "Critical",
+       "color": "#ff4500",
+       "glyph": "double",
+       "score": 25
+      },
+      {
+       "id": "offline",
+       "label": "Offline",
+       "color": "#888888",
+       "glyph": "dotted",
+       "score": 0
+      }
+     ]
+    }
+   ],
+   "sectors": [
+    {
+     "id": "people",
+     "name": "People",
+     "color": "#aa88ff",
+     "asset_types": [
+      "person",
+      "mailbox"
+     ],
+     "status_set": "security"
+    },
+    {
+     "id": "money",
+     "name": "Payments",
+     "color": "#33cc99",
+     "asset_types": [
+      "finance",
+      "bank",
+      "vendor"
+     ],
+     "status_set": "security"
+    }
+   ],
+   "fields": [
+    {
+     "id": "mfa",
+     "label": "MFA enabled",
+     "kind": {
+      "type": "bool"
+     },
+     "player_visible": true
+    },
+    {
+     "id": "limit",
+     "label": "Approval limit ($)",
+     "kind": {
+      "type": "number"
+     },
+     "player_visible": true
+    },
+    {
+     "id": "role",
+     "label": "Role",
+     "kind": {
+      "type": "text"
+     },
+     "player_visible": true
+    }
+   ]
+  },
+  "teams": [
+   {
+    "id": "finance",
+    "name": "Finance",
+    "color": "#3399ff"
+   },
+   {
+    "id": "security",
+    "name": "IT Security",
+    "color": "#ffaa00"
+   },
+   {
+    "id": "legal",
+    "name": "Legal",
+    "color": "#aa88ff"
+   }
+  ],
+  "assets": {
+   "ceo": {
+    "id": "ceo",
+    "name": "Chief executive",
+    "type_id": "person",
+    "geo": null,
+    "graph": {
+     "x": 0,
+     "y": 0
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "role": "CEO",
+     "mfa": true
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "cfo": {
+    "id": "cfo",
+    "name": "Finance director",
+    "type_id": "person",
+    "geo": null,
+    "graph": {
+     "x": 300,
+     "y": 0
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "role": "CFO",
+     "mfa": true,
+     "limit": 250000
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "ap": {
+    "id": "ap",
+    "name": "Accounts payable clerk",
+    "type_id": "person",
+    "geo": null,
+    "graph": {
+     "x": 600,
+     "y": 0
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "role": "AP",
+     "mfa": false,
+     "limit": 50000
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "ceo-mail": {
+    "id": "ceo-mail",
+    "name": "CEO mailbox",
+    "type_id": "mailbox",
+    "geo": null,
+    "graph": {
+     "x": 0,
+     "y": 160
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "mfa": true
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "cfo-mail": {
+    "id": "cfo-mail",
+    "name": "CFO mailbox",
+    "type_id": "mailbox",
+    "geo": null,
+    "graph": {
+     "x": 300,
+     "y": 160
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "mfa": true
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "ap-mail": {
+    "id": "ap-mail",
+    "name": "AP mailbox",
+    "type_id": "mailbox",
+    "geo": null,
+    "graph": {
+     "x": 600,
+     "y": 160
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "mfa": false
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "idp": {
+    "id": "idp",
+    "name": "Identity provider",
+    "type_id": "idp",
+    "geo": null,
+    "graph": {
+     "x": 300,
+     "y": 320
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "erp": {
+    "id": "erp",
+    "name": "Payments system",
+    "type_id": "finance",
+    "geo": null,
+    "graph": {
+     "x": 600,
+     "y": 320
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "bank": {
+    "id": "bank",
+    "name": "Company bank",
+    "type_id": "bank",
+    "geo": null,
+    "graph": {
+     "x": 600,
+     "y": 480
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "vendor": {
+    "id": "vendor",
+    "name": "Logistics supplier",
+    "type_id": "vendor",
+    "geo": null,
+    "graph": {
+     "x": 900,
+     "y": 160
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "lookalike": {
+    "id": "lookalike",
+    "name": "Look-alike domain",
+    "type_id": "threat",
+    "geo": null,
+    "graph": {
+     "x": 900,
+     "y": 0
+    },
+    "statuses": {
+     "security": "compromised",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "compromised",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "Registered two days ago; one letter differs from the vendor's domain.",
+    "color": null,
+    "visibility": {
+     "mode": "facilitator"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   }
+  },
+  "links": {
+   "idp--ceo-mail": {
+    "id": "idp--ceo-mail",
+    "from": "idp",
+    "to": "ceo-mail",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "idp--cfo-mail": {
+    "id": "idp--cfo-mail",
+    "from": "idp",
+    "to": "cfo-mail",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "idp--ap-mail": {
+    "id": "idp--ap-mail",
+    "from": "idp",
+    "to": "ap-mail",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "ap--erp": {
+    "id": "ap--erp",
+    "from": "ap",
+    "to": "erp",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "erp--bank": {
+    "id": "erp--bank",
+    "from": "erp",
+    "to": "bank",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "ceo--ceo-mail": {
+    "id": "ceo--ceo-mail",
+    "from": "ceo",
+    "to": "ceo-mail",
+    "kind": "managed_by",
+    "label": ""
+   },
+   "cfo--cfo-mail": {
+    "id": "cfo--cfo-mail",
+    "from": "cfo",
+    "to": "cfo-mail",
+    "kind": "managed_by",
+    "label": ""
+   },
+   "ap--ap-mail": {
+    "id": "ap--ap-mail",
+    "from": "ap",
+    "to": "ap-mail",
+    "kind": "managed_by",
+    "label": ""
+   },
+   "vendor--ap-mail": {
+    "id": "vendor--ap-mail",
+    "from": "vendor",
+    "to": "ap-mail",
+    "kind": "connects_to",
+    "label": "invoices"
+   },
+   "lookalike--ap-mail": {
+    "id": "lookalike--ap-mail",
+    "from": "lookalike",
+    "to": "ap-mail",
+    "kind": "connects_to",
+    "label": "spoofed invoices"
+   }
+  },
+  "injects": {
+   "request": {
+    "id": "request",
+    "title": "Urgent request from the CEO",
+    "body": "\"I need this vendor payment out today, I'm in meetings, don't call.\" The vendor's bank details have changed.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "finance"
+     ]
+    },
+    "effects": [
+     {
+      "type": "open_poll",
+      "poll": "wire"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "at",
+     "minutes": 2
+    },
+    "armed": true
+   },
+   "sent": {
+    "id": "sent",
+    "title": "Wire sent",
+    "body": "$186,000 leaves the account to a new beneficiary.",
+    "severity": "critical",
+    "audience": {
+     "mode": "all"
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "erp",
+      "set": "security",
+      "value": "compromised"
+     },
+     {
+      "type": "set_status",
+      "asset": "bank",
+      "set": "security",
+      "value": "under_investigation"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "poll_choice",
+      "poll": "wire",
+      "option": "wire-0"
+     }
+    },
+    "armed": true
+   },
+   "held": {
+    "id": "held",
+    "title": "Verification call",
+    "body": "The CEO has never heard of the request.",
+    "severity": "info",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "finance",
+      "security"
+     ]
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "ap-mail",
+      "set": "security",
+      "value": "under_investigation"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "poll_choice",
+      "poll": "wire",
+      "option": "wire-1"
+     }
+    },
+    "armed": true
+   },
+   "rule": {
+    "id": "rule",
+    "title": "Hidden mailbox rule",
+    "body": "IT finds a rule in the AP mailbox that moves anything from the vendor to an RSS folder.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "security"
+     ]
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "ap-mail",
+      "set": "security",
+      "value": "compromised"
+     },
+     {
+      "type": "reveal_asset",
+      "asset": "lookalike",
+      "visibility": {
+       "mode": "teams",
+       "teams": [
+        "security"
+       ]
+      }
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "phase",
+     "phase": "respond",
+     "delay_minutes": 3
+    },
+    "armed": true
+   },
+   "signin": {
+    "id": "signin",
+    "title": "Sign-in from abroad",
+    "body": "The identity provider shows the AP clerk signing in from another country without MFA.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "security"
+     ]
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "idp",
+      "set": "security",
+      "value": "under_investigation"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "inject_fired",
+      "inject": "rule"
+     }
+    },
+    "armed": true
+   },
+   "recall": {
+    "id": "recall",
+    "title": "Bank recall window",
+    "body": "The bank can try to recall the wire if asked within the hour.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "finance",
+      "legal"
+     ]
+    },
+    "effects": [],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "inject_fired",
+      "inject": "sent"
+     }
+    },
+    "armed": true
+   },
+   "vendor-call": {
+    "id": "vendor-call",
+    "title": "Vendor asks about late payment",
+    "body": "The real supplier says last month's invoice is unpaid and threatens to stop deliveries.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "finance",
+      "legal"
+     ]
+    },
+    "effects": [],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "phase",
+     "phase": "recover",
+     "delay_minutes": 0
+    },
+    "armed": true
+   },
+   "regulator": {
+    "id": "regulator",
+    "title": "Notification deadline",
+    "body": "Counsel asks whether personal data in the mailbox triggers breach notification.",
+    "severity": "info",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "legal"
+     ]
+    },
+    "effects": [],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "phase",
+     "phase": "recover",
+     "delay_minutes": 10
+    },
+    "armed": true
+   }
+  },
+  "thresholds": [
+   {
+    "id": "money-low",
+    "name": "Payments compromised",
+    "sector": "money",
+    "below_pct": 60,
+    "severity": "critical"
+   }
+  ],
+  "log": [],
+  "annotations": {},
+  "metrics": [
+   {
+    "id": "funds",
+    "name": "Funds recoverable",
+    "value": 100
+   }
+  ],
+  "clock": {
+   "elapsed_ms": 0,
+   "running_since": null
+  },
+  "phases": [
+   {
+    "id": "detect",
+    "name": "Detection",
+    "color": "#3399ff",
+    "target_minutes": 15
+   },
+   {
+    "id": "respond",
+    "name": "Response",
+    "color": "#ffaa00",
+    "target_minutes": 30
+   },
+   {
+    "id": "recover",
+    "name": "Recovery",
+    "color": "#ff6633",
+    "target_minutes": 30
+   }
+  ],
+  "phase_log": [],
+  "polls": {
+   "wire": {
+    "id": "wire",
+    "question": "AP has a 'CEO-approved' request to wire $186,000 to a new account today. Approve it?",
+    "options": [
+     {
+      "id": "wire-0",
+      "label": "Approve the wire"
+     },
+     {
+      "id": "wire-1",
+      "label": "Hold and verify by phone"
+     }
+    ],
+    "allow_text": false,
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "finance"
+     ]
+    },
+    "state": "draft",
+    "duration_minutes": 4,
+    "opened_at": null,
+    "closes_at": null,
+    "closed_at": null,
+    "responses": [],
+    "results": {}
+   }
+  },
+  "impact_rules": [
+   {
+    "id": "dependency-outage",
+    "kind": "depends_on",
+    "set": "operational",
+    "when": [
+     "offline",
+     "critical"
+    ],
+    "then_set": "operational",
+    "then_value": "degraded"
+   }
+  ],
+  "branding": {
+   "theme": "terminal",
+   "accent": null,
+   "org": "",
+   "logo": null,
+   "banner": {
+    "text": "EXERCISE — EXERCISE — EXERCISE",
+    "color": "#b8860b",
+    "position": "both"
+   }
+  },
+  "created_at": "2026-01-01T00:00:00+00:00",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+ }
+}

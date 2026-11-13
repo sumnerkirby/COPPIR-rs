@@ -32,7 +32,7 @@
 <style>
   .legend {
     position: absolute; left: 10px; bottom: 30px; z-index: 10; display: grid; gap: 3px; font-size: 12px;
-    background: rgba(11, 19, 13, 0.92); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px 8px 10px; min-width: 160px;
+    background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px 8px 10px; min-width: 160px;
   }
   .section-title { margin-top: 4px; font-size: 10px; }
   .dot { width: 16px; height: 16px; border-radius: 50%; display: inline-grid; place-items: center; color: #000; font-size: 10px; font-weight: 700; }

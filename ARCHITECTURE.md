@@ -53,6 +53,7 @@ that frontend. Exercises live in one SQLite file as append-only event logs.
 | `store.rs` | SQLite: the `exercises` index, append-only `events`, `snapshots` |
 | `exercise/engine.rs` | The script engine: which injects are due and which polls have run out of time |
 | `exercise/impact.rs` | Spreads a status change along links by the exercise's impact rules |
+| `templates.rs` | The built-in exercises, `templates/*.coppir` compiled into the binary |
 | `exercise/view.rs` | What each audience may see: `project` an exercise, `diff` two projections into events |
 | `live.rs` | One room per open exercise: the in-memory state, the undo stack, the broadcast channel and one view per connected audience |
 | `room.rs` | Join codes, participant sessions, rate limiting, and this machine's LAN addresses |
@@ -211,6 +212,8 @@ rest are the facilitator's. Any other path serves the frontend, with
 | POST | `/api/v2/exercises/{id}/duplicate` | Copy, with a fresh history |
 | POST | `/api/v2/exercises/import` | Create from a `.coppir` file |
 | POST | `/api/v2/exercises/import/v1` | Create from a version 1 scenario's JSON |
+| GET | `/api/v2/templates` | The built-in exercises |
+| POST | `/api/v2/templates/{id}` | Start an exercise from one |
 | GET | `/api/v2/legacy/scenarios` | Version 1 scenario files waiting in the scenarios folder |
 | POST | `/api/v2/legacy/scenarios/import` | Import one of them by name |
 | GET | `/api/v2/me` | The caller's role, name, team and exercise |
@@ -285,6 +288,26 @@ drawing. The client sends a finished shape as an `add_annotation` command and
 removes it from terra-draw's own store. The shared annotation layer is the only
 copy.
 
+**Graph.** The topology view (`components/graph/`) uses Svelte Flow, loaded
+only when someone switches to it. Positions live on each asset (`graph`);
+`SetGraphPositions` saves a drag or a whole layout in one undoable change.
+Unplaced assets are positioned by dagre (`lib/graph.ts`) until someone moves
+them. dagre was chosen over ELK for size: it does the same layered layout in a
+fraction of the code.
+
+**Themes.** `lib/theme.ts` holds four token sets. `BrandFrame` writes the
+exercise's tokens onto `:root` and draws the banner. Every component colours
+itself from the tokens, so a theme change restyles everything at once. The map
+is remounted with a light basemap for Daylight.
+
+## Templates (`templates/`)
+
+`templates/generate.py` writes the four `.coppir` files, and `src/templates.rs`
+compiles them in with `include_str!`. A unit test adopts each template and
+re-validates every inject, impact rule and branding through `decide`, so a
+reference to a missing asset or phase fails the build. CI regenerates the files
+and fails if they differ from the committed ones.
+
 ## Desktop shell (`src/desktop.rs`)
 
 `tao` creates the window, 1440×900 with a 1100×700 minimum. `wry` hosts the
@@ -299,6 +322,7 @@ browser. Devtools are on in debug builds.
 |---|---|
 | Rust unit tests | Validation, taxonomy checks, undo inverses for every command, store replay with and without snapshots, v1 import, Overpass and Nominatim parsing, host checks |
 | `tests/v2.rs` | The API and websocket against a real server on a random port: commands, races, resume, undo, export and import, legacy import |
+| `tests/customize.rs` | Every template starting and running to the end, branding validation and undo, graph positions, custom fields following the taxonomy |
 | `tests/script.rs` | A scheduled inject firing by itself, chains within a request, undo disarming, impact through the API, players answering polls and the branch firing, what participants see of the script |
 | `tests/room.rs` | Joining, roles, per-team snapshots and live patches, player log stamping, moving and kicking, and access over the real LAN address |
 | `tests/security.rs` | The origin and host guard, content types, SPA fallback, upstream failures |

@@ -1,0 +1,1121 @@
+{
+ "format": "coppir.exercise",
+ "version": 1,
+ "exported_at": "2026-01-01T00:00:00+00:00",
+ "exercise": {
+  "id": "template",
+  "name": "Regional utility outage",
+  "description": "An intrusion into a utility's control systems coincides with a heat wave. Substations trip, and hospitals, water and transit feel it. Map view of a fictional county; about 100 minutes.",
+  "taxonomy": {
+   "asset_types": [
+    {
+     "id": "substation",
+     "name": "Substation",
+     "icon": "zap",
+     "color": "#ffdd00"
+    },
+    {
+     "id": "control",
+     "name": "Control centre",
+     "icon": "monitor-cog",
+     "color": "#ffdd00"
+    },
+    {
+     "id": "hospital",
+     "name": "Hospital",
+     "icon": "hospital",
+     "color": "#3399ff"
+    },
+    {
+     "id": "water",
+     "name": "Water plant",
+     "icon": "droplet",
+     "color": "#00ccaa"
+    },
+    {
+     "id": "telecom",
+     "name": "Telecom site",
+     "icon": "radio-tower",
+     "color": "#00ccaa"
+    },
+    {
+     "id": "transit",
+     "name": "Transit hub",
+     "icon": "train-front",
+     "color": "#00ccaa"
+    },
+    {
+     "id": "responder",
+     "name": "Emergency services",
+     "icon": "siren",
+     "color": "#ff4444"
+    }
+   ],
+   "status_sets": [
+    {
+     "id": "security",
+     "name": "Security",
+     "display": "fill",
+     "default": "clean",
+     "values": [
+      {
+       "id": "clean",
+       "label": "Clean",
+       "color": "#33cc33",
+       "glyph": "✓",
+       "score": 100
+      },
+      {
+       "id": "monitored",
+       "label": "Monitored",
+       "color": "#3399ff",
+       "glyph": "◦",
+       "score": 70
+      },
+      {
+       "id": "contained",
+       "label": "Contained",
+       "color": "#ff6600",
+       "glyph": "▪",
+       "score": 40
+      },
+      {
+       "id": "under_investigation",
+       "label": "Under Investigation",
+       "color": "#ffaa00",
+       "glyph": "?",
+       "score": 15
+      },
+      {
+       "id": "compromised",
+       "label": "Compromised",
+       "color": "#ff3333",
+       "glyph": "✕",
+       "score": 0
+      }
+     ]
+    },
+    {
+     "id": "operational",
+     "name": "Operational",
+     "display": "ring",
+     "default": "healthy",
+     "values": [
+      {
+       "id": "healthy",
+       "label": "Healthy",
+       "color": "#00ff41",
+       "glyph": "solid",
+       "score": 100
+      },
+      {
+       "id": "degraded",
+       "label": "Degraded",
+       "color": "#ffd700",
+       "glyph": "dashed",
+       "score": 60
+      },
+      {
+       "id": "critical",
+       "label": "Critical",
+       "color": "#ff4500",
+       "glyph": "double",
+       "score": 25
+      },
+      {
+       "id": "offline",
+       "label": "Offline",
+       "color": "#888888",
+       "glyph": "dotted",
+       "score": 0
+      }
+     ]
+    }
+   ],
+   "sectors": [
+    {
+     "id": "power",
+     "name": "Power",
+     "color": "#ffdd00",
+     "asset_types": [
+      "substation",
+      "control"
+     ],
+     "status_set": "security"
+    },
+    {
+     "id": "medical",
+     "name": "Medical",
+     "color": "#3399ff",
+     "asset_types": [
+      "hospital"
+     ],
+     "status_set": "security"
+    },
+    {
+     "id": "lifeline",
+     "name": "Lifelines",
+     "color": "#00ccaa",
+     "asset_types": [
+      "water",
+      "telecom",
+      "transit"
+     ],
+     "status_set": "security"
+    },
+    {
+     "id": "emergency",
+     "name": "Emergency",
+     "color": "#ff4444",
+     "asset_types": [
+      "responder"
+     ],
+     "status_set": "security"
+    }
+   ],
+   "fields": [
+    {
+     "id": "generator",
+     "label": "Backup generator (hours)",
+     "kind": {
+      "type": "number"
+     },
+     "player_visible": true
+    },
+    {
+     "id": "customers",
+     "label": "Customers served",
+     "kind": {
+      "type": "number"
+     },
+     "player_visible": true
+    },
+    {
+     "id": "scada",
+     "label": "SCADA vendor",
+     "kind": {
+      "type": "text"
+     },
+     "player_visible": false
+    }
+   ]
+  },
+  "teams": [
+   {
+    "id": "utility",
+    "name": "Utility",
+    "color": "#3399ff"
+   },
+   {
+    "id": "county",
+    "name": "County emergency management",
+    "color": "#ffaa00"
+   },
+   {
+    "id": "health",
+    "name": "Health & water",
+    "color": "#aa88ff"
+   }
+  ],
+  "assets": {
+   "ecc": {
+    "id": "ecc",
+    "name": "Energy control centre",
+    "type_id": "control",
+    "geo": {
+     "lat": 44.06,
+     "lon": -121.31
+    },
+    "graph": null,
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "scada": "GridLink 9"
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "north": {
+    "id": "north",
+    "name": "North substation",
+    "type_id": "substation",
+    "geo": {
+     "lat": 44.12,
+     "lon": -121.29
+    },
+    "graph": null,
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "customers": 41000
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "river": {
+    "id": "river",
+    "name": "River substation",
+    "type_id": "substation",
+    "geo": {
+     "lat": 44.05,
+     "lon": -121.24
+    },
+    "graph": null,
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "customers": 38000
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "south": {
+    "id": "south",
+    "name": "South substation",
+    "type_id": "substation",
+    "geo": {
+     "lat": 43.99,
+     "lon": -121.32
+    },
+    "graph": null,
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "customers": 52000
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "mercy": {
+    "id": "mercy",
+    "name": "Mercy General Hospital",
+    "type_id": "hospital",
+    "geo": {
+     "lat": 44.11,
+     "lon": -121.26
+    },
+    "graph": null,
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "generator": 48
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "valley": {
+    "id": "valley",
+    "name": "Valley Medical Centre",
+    "type_id": "hospital",
+    "geo": {
+     "lat": 44.0,
+     "lon": -121.28
+    },
+    "graph": null,
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "generator": 12
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "plant": {
+    "id": "plant",
+    "name": "Water treatment plant",
+    "type_id": "water",
+    "geo": {
+     "lat": 44.07,
+     "lon": -121.21
+    },
+    "graph": null,
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "generator": 6
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "tower": {
+    "id": "tower",
+    "name": "Hilltop telecom site",
+    "type_id": "telecom",
+    "geo": {
+     "lat": 44.14,
+     "lon": -121.36
+    },
+    "graph": null,
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "generator": 8
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "depot": {
+    "id": "depot",
+    "name": "Central transit hub",
+    "type_id": "transit",
+    "geo": {
+     "lat": 44.04,
+     "lon": -121.3
+    },
+    "graph": null,
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "eoc": {
+    "id": "eoc",
+    "name": "County emergency operations",
+    "type_id": "responder",
+    "geo": {
+     "lat": 44.08,
+     "lon": -121.34
+    },
+    "graph": null,
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "fire": {
+    "id": "fire",
+    "name": "Fire station 3",
+    "type_id": "responder",
+    "geo": {
+     "lat": 44.02,
+     "lon": -121.25
+    },
+    "graph": null,
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "rtu": {
+    "id": "rtu",
+    "name": "Compromised remote terminal",
+    "type_id": "control",
+    "geo": {
+     "lat": 44.01,
+     "lon": -121.35
+    },
+    "graph": null,
+    "statuses": {
+     "security": "compromised",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "compromised",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "Field device on the south feeder, reached from a contractor laptop.",
+    "color": null,
+    "visibility": {
+     "mode": "facilitator"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   }
+  },
+  "links": {
+   "ecc--north": {
+    "id": "ecc--north",
+    "from": "ecc",
+    "to": "north",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "ecc--river": {
+    "id": "ecc--river",
+    "from": "ecc",
+    "to": "river",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "ecc--south": {
+    "id": "ecc--south",
+    "from": "ecc",
+    "to": "south",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "north--mercy": {
+    "id": "north--mercy",
+    "from": "north",
+    "to": "mercy",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "north--tower": {
+    "id": "north--tower",
+    "from": "north",
+    "to": "tower",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "river--plant": {
+    "id": "river--plant",
+    "from": "river",
+    "to": "plant",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "river--depot": {
+    "id": "river--depot",
+    "from": "river",
+    "to": "depot",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "south--valley": {
+    "id": "south--valley",
+    "from": "south",
+    "to": "valley",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "south--fire": {
+    "id": "south--fire",
+    "from": "south",
+    "to": "fire",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "tower--eoc": {
+    "id": "tower--eoc",
+    "from": "tower",
+    "to": "eoc",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "rtu--south": {
+    "id": "rtu--south",
+    "from": "rtu",
+    "to": "south",
+    "kind": "connects_to",
+    "label": "malicious commands"
+   }
+  },
+  "injects": {
+   "trip": {
+    "id": "trip",
+    "title": "South substation trips",
+    "body": "Breakers at South open without an operator command. 52,000 customers lose power in 38 °C heat.",
+    "severity": "critical",
+    "audience": {
+     "mode": "all"
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "south",
+      "set": "operational",
+      "value": "offline"
+     },
+     {
+      "type": "set_status",
+      "asset": "south",
+      "set": "security",
+      "value": "under_investigation"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "at",
+     "minutes": 5
+    },
+    "armed": true
+   },
+   "scada": {
+    "id": "scada",
+    "title": "Unrecognised commands",
+    "body": "Control centre logs show breaker commands from a field terminal nobody was using.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "utility"
+     ]
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "ecc",
+      "set": "security",
+      "value": "under_investigation"
+     },
+     {
+      "type": "reveal_asset",
+      "asset": "rtu",
+      "visibility": {
+       "mode": "teams",
+       "teams": [
+        "utility"
+       ]
+      }
+     },
+     {
+      "type": "open_poll",
+      "poll": "shed"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "phase",
+     "phase": "respond",
+     "delay_minutes": 2
+    },
+    "armed": true
+   },
+   "wider": {
+    "id": "wider",
+    "title": "Cascading trip",
+    "body": "Without shedding load, River substation overloads and trips.",
+    "severity": "critical",
+    "audience": {
+     "mode": "all"
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "river",
+      "set": "operational",
+      "value": "offline"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "poll_choice",
+      "poll": "shed",
+      "option": "shed-2"
+     }
+    },
+    "armed": true
+   },
+   "rotating": {
+    "id": "rotating",
+    "title": "Rotating outages begin",
+    "body": "Residential feeders rotate off in 30-minute blocks. Complaints flood the call centre.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "utility",
+      "county"
+     ]
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "north",
+      "set": "operational",
+      "value": "degraded"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "poll_choice",
+      "poll": "shed",
+      "option": "shed-0"
+     }
+    },
+    "armed": true
+   },
+   "industrial": {
+    "id": "industrial",
+    "title": "Industrial load shed",
+    "body": "Two plants shut down; one warns of a chemical process upset.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "county"
+     ]
+    },
+    "effects": [],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "poll_choice",
+      "poll": "shed",
+      "option": "shed-1"
+     }
+    },
+    "armed": true
+   },
+   "generator": {
+    "id": "generator",
+    "title": "Valley Medical on generator",
+    "body": "Valley Medical has 12 hours of fuel and asks for priority delivery.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "health",
+      "county"
+     ]
+    },
+    "effects": [],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "asset_status",
+      "asset": "valley",
+      "set": "operational",
+      "value": "degraded"
+     }
+    },
+    "armed": true
+   },
+   "boil": {
+    "id": "boil",
+    "title": "Boil-water decision",
+    "body": "Plant pressure is falling; the health officer must decide on a boil-water notice.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "health"
+     ]
+    },
+    "effects": [],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "asset_status",
+      "asset": "plant",
+      "set": "operational",
+      "value": "degraded"
+     }
+    },
+    "armed": true
+   },
+   "medical": {
+    "id": "medical",
+    "title": "Hospitals at risk",
+    "body": "Two hospitals are on backup power with limited fuel.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "county",
+      "health"
+     ]
+    },
+    "effects": [],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "threshold_breached",
+      "threshold": "medical-low"
+     }
+    },
+    "armed": true
+   },
+   "restore": {
+    "id": "restore",
+    "title": "Crews restore South",
+    "body": "Crews isolate the terminal and close South's breakers by hand.",
+    "severity": "info",
+    "audience": {
+     "mode": "all"
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "south",
+      "set": "operational",
+      "value": "degraded"
+     },
+     {
+      "type": "set_status",
+      "asset": "south",
+      "set": "security",
+      "value": "contained"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "phase",
+     "phase": "restore",
+     "delay_minutes": 10
+    },
+    "armed": true
+   }
+  },
+  "thresholds": [
+   {
+    "id": "power-crit",
+    "name": "Grid critical",
+    "sector": "power",
+    "below_pct": 40,
+    "severity": "critical"
+   },
+   {
+    "id": "medical-low",
+    "name": "Hospitals at risk",
+    "sector": "medical",
+    "below_pct": 50,
+    "severity": "warning"
+   }
+  ],
+  "log": [],
+  "annotations": {},
+  "metrics": [
+   {
+    "id": "temp",
+    "name": "Heat index (% of record)",
+    "value": 92
+   },
+   {
+    "id": "crews",
+    "name": "Line crews available",
+    "value": 70
+   }
+  ],
+  "clock": {
+   "elapsed_ms": 0,
+   "running_since": null
+  },
+  "phases": [
+   {
+    "id": "detect",
+    "name": "Detection",
+    "color": "#3399ff",
+    "target_minutes": 20
+   },
+   {
+    "id": "respond",
+    "name": "Response",
+    "color": "#ffaa00",
+    "target_minutes": 35
+   },
+   {
+    "id": "restore",
+    "name": "Restoration",
+    "color": "#ff6633",
+    "target_minutes": 30
+   },
+   {
+    "id": "review",
+    "name": "Hot wash",
+    "color": "#33cc99",
+    "target_minutes": 15
+   }
+  ],
+  "phase_log": [],
+  "polls": {
+   "shed": {
+    "id": "shed",
+    "question": "Load must come off the grid. Where do you shed first?",
+    "options": [
+     {
+      "id": "shed-0",
+      "label": "Residential rotating outages"
+     },
+     {
+      "id": "shed-1",
+      "label": "Industrial customers"
+     },
+     {
+      "id": "shed-2",
+      "label": "Protect everyone, risk a wider trip"
+     }
+    ],
+    "allow_text": true,
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "utility",
+      "county"
+     ]
+    },
+    "state": "draft",
+    "duration_minutes": 5,
+    "opened_at": null,
+    "closes_at": null,
+    "closed_at": null,
+    "responses": [],
+    "results": {}
+   }
+  },
+  "impact_rules": [
+   {
+    "id": "dependency-outage",
+    "kind": "depends_on",
+    "set": "operational",
+    "when": [
+     "offline",
+     "critical"
+    ],
+    "then_set": "operational",
+    "then_value": "degraded"
+   }
+  ],
+  "branding": {
+   "theme": "terminal",
+   "accent": null,
+   "org": "",
+   "logo": null,
+   "banner": {
+    "text": "EXERCISE — EXERCISE — EXERCISE",
+    "color": "#b8860b",
+    "position": "both"
+   }
+  },
+  "created_at": "2026-01-01T00:00:00+00:00",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+ }
+}

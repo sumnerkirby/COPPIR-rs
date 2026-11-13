@@ -9,11 +9,13 @@
   import { provideWorkspace, Workspace } from '../../lib/workspace.svelte';
   import type { Me } from '../../lib/types/Me';
   import InjectBanner from '../console/InjectBanner.svelte';
+  import BrandFrame from '../BrandFrame.svelte';
   import MapView from '../map/MapView.svelte';
   import Sitrep from '../Sitrep.svelte';
   import Icon from '../ui/Icon.svelte';
   import ExerciseClock from '../console/ExerciseClock.svelte';
   import PlayerPoll from './PlayerPoll.svelte';
+  import ViewSwitch from '../ViewSwitch.svelte';
 
   let { me }: { me: Me } = $props();
   const ws = new Workspace(
@@ -61,6 +63,7 @@
   const time = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString() : '');
 </script>
 
+<BrandFrame branding={ws.exercise?.branding}>
 <div class="play">
   <header>
     <span class="brand">COPPIR</span>
@@ -88,7 +91,14 @@
         </section>
       {:else if tab === 'map'}
         <div class="mapwrap">
-          <MapView />
+          {#if ws.view === 'graph'}
+            {#await import('../graph/GraphView.svelte') then { default: GraphView }}<GraphView />{/await}
+          {:else}
+            {#key ws.exercise?.branding.theme === 'daylight'}
+            <MapView />
+            {/key}
+          {/if}
+          <ViewSwitch />
           <InjectBanner />
           {#if selected}
             <div class="card">
@@ -97,6 +107,10 @@
               {#each ex.taxonomy.status_sets as set (set.id)}
                 {@const v = statusValue(set, selected)}
                 <span><span class="dot" style:background={v?.color}></span> {set.name}: {v?.label}</span>
+              {/each}
+              {#each ex.taxonomy.fields.filter((f) => selected.fields[f.id] !== undefined) as f (f.id)}
+                {@const v = selected.fields[f.id]}
+                <span><span class="muted">{f.label}:</span> {v === true ? 'Yes' : v === false ? 'No' : String(v)}</span>
               {/each}
               {#if selected.notes}<p>{selected.notes}</p>{/if}
             </div>
@@ -131,9 +145,10 @@
     <button role="tab" aria-selected={tab === 'log'} class:on={tab === 'log'} onclick={() => (tab = 'log')}><Icon name="notebook-pen" size={20} /> Log</button>
   </div>
 </div>
+</BrandFrame>
 
 <style>
-  .play { display: grid; grid-template-rows: auto 1fr auto; height: 100dvh; }
+  .play { display: grid; grid-template-rows: auto 1fr auto; height: 100%; }
   header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
   .brand { font-family: var(--mono); color: var(--accent); letter-spacing: 0.2em; font-weight: 700; font-size: 13px; }
   .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -155,7 +170,7 @@
   .entry.auto { border-left-color: var(--warn); }
   .card {
     position: absolute; left: 10px; right: 10px; bottom: 34px; z-index: 12; display: grid; gap: 3px;
-    background: rgba(11, 19, 13, 0.96); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px;
+    background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px;
   }
   .card p { margin: 4px 0 0; font-size: 13px; }
   .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }

@@ -13,6 +13,7 @@ import type { JoinInfo } from './types/JoinInfo';
 import type { Me } from './types/Me';
 import type { OpenRoom } from './types/OpenRoom';
 import type { RoomStatus } from './types/RoomStatus';
+import type { TemplateSummary } from './types/TemplateSummary';
 
 export class ApiError extends Error {
   constructor(
@@ -72,6 +73,9 @@ export const api = {
   osmCategories: () => request<string[]>('GET', '/api/v2/osm/categories'),
   osmSearch: (lat: number, lon: number, radius_mi: number, category: string) =>
     request<OsmResult[]>('POST', '/api/v2/osm/search', { lat, lon, radius_mi, category }),
+
+  templates: () => request<TemplateSummary[]>('GET', '/api/v2/templates'),
+  fromTemplate: (id: string, name?: string) => request<Snapshot>('POST', `/api/v2/templates/${id}`, { name }),
 
   // Who am I, and joining
   me: () => request<Me>('GET', '/api/v2/me'),

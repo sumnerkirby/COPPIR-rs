@@ -6,6 +6,8 @@
   import Sitrep from './Sitrep.svelte';
   import MapView from './map/MapView.svelte';
   import MapToolbar from './map/MapToolbar.svelte';
+  import ViewSwitch from './ViewSwitch.svelte';
+  import BrandFrame from './BrandFrame.svelte';
   import Sidebar from './console/Sidebar.svelte';
   import TaxonomyEditor from './taxonomy/TaxonomyEditor.svelte';
   import ShortcutHelp from './console/ShortcutHelp.svelte';
@@ -55,6 +57,7 @@
 
 <svelte:window {onkeydown} />
 
+<BrandFrame branding={ws.exercise?.branding}>
 <div class="console">
   <TopBar />
   {#if ws.exercise}
@@ -63,8 +66,15 @@
   <div class="body">
     <div class="map">
       {#if ws.exercise}
-        <MapView />
-        <MapToolbar />
+        {#if ws.view === 'graph'}
+          {#await import('./graph/GraphView.svelte') then { default: GraphView }}<GraphView />{/await}
+        {:else}
+          {#key ws.exercise?.branding.theme === 'daylight'}
+          <MapView />
+          <MapToolbar />
+          {/key}
+        {/if}
+        <ViewSwitch />
         <InjectBanner />
       {:else}
         <p class="empty loading">{ws.live.connection === 'offline' ? 'Cannot reach the server; retrying…' : 'Loading exercise…'}</p>
@@ -73,6 +83,7 @@
     {#if ws.exercise}<Sidebar />{/if}
   </div>
 </div>
+</BrandFrame>
 
 {#if ws.showTaxonomy && ws.exercise}
   <TaxonomyEditor onclose={() => (ws.showTaxonomy = false)} />
@@ -88,7 +99,7 @@
 {/if}
 
 <style>
-  .console { display: grid; grid-template-rows: auto auto 1fr; height: 100%; }
+  .console { display: grid; grid-template-rows: auto auto 1fr; grid-template-columns: minmax(0, 1fr); height: 100%; }
   .body { display: grid; grid-template-columns: 1fr 380px; min-height: 0; }
   .map { position: relative; min-height: 0; overflow: hidden; }
   .loading { padding: 20px; }

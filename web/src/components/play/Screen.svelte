@@ -6,9 +6,11 @@
   import { provideWorkspace, Workspace } from '../../lib/workspace.svelte';
   import type { Me } from '../../lib/types/Me';
   import InjectBanner from '../console/InjectBanner.svelte';
+  import BrandFrame from '../BrandFrame.svelte';
   import MapView from '../map/MapView.svelte';
   import Sitrep from '../Sitrep.svelte';
   import ExerciseClock from '../console/ExerciseClock.svelte';
+  import ViewSwitch from '../ViewSwitch.svelte';
 
   let { me }: { me: Me } = $props();
   const ws = new Workspace(
@@ -28,9 +30,11 @@
   });
 </script>
 
+<BrandFrame branding={ws.exercise?.branding}>
 <div class="screen">
   <header>
-    <span class="brand">COPPIR</span>
+    {#if ex?.branding.logo}<img src={ex.branding.logo} alt="" class="logo" />{:else}<span class="brand">COPPIR</span>{/if}
+    {#if ex?.branding.org}<span class="muted">{ex.branding.org}</span>{/if}
     <h1 class="grow">{ex?.name ?? 'Connecting…'}</h1>
     <span class="conn {ws.live.connection}" role="status" aria-label="Connection {ws.live.connection}"></span>
     {#if ex}<span class="big"><ExerciseClock /></span>{/if}
@@ -39,7 +43,17 @@
   {#if ex}
     <Sitrep exercise={ex} />
     <div class="body">
-      <div class="map"><MapView /><InjectBanner /></div>
+      <div class="map">
+        {#if ws.view === 'graph'}
+          {#await import('../graph/GraphView.svelte') then { default: GraphView }}<GraphView />{/await}
+        {:else}
+          {#key ws.exercise?.branding.theme === 'daylight'}
+          <MapView />
+          {/key}
+        {/if}
+        <ViewSwitch />
+        <InjectBanner />
+      </div>
       <aside aria-label="Latest log entries">
         {#each ticker as e (e.id)}
           <div class="entry" class:auto={e.auto}>
@@ -53,12 +67,14 @@
     </div>
   {/if}
 </div>
+</BrandFrame>
 
 <style>
-  .screen { display: grid; grid-template-rows: auto auto 1fr; height: 100dvh; }
+  .screen { display: grid; grid-template-rows: auto auto 1fr; height: 100%; }
   header { display: flex; align-items: center; gap: 14px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
   .brand { font-family: var(--mono); color: var(--accent); letter-spacing: 0.25em; font-weight: 700; }
   h1 { font-size: 20px; }
+  .logo { max-height: 32px; max-width: 140px; }
   .clock { font-size: 16px; color: var(--muted); }
   .big :global(.time) { font-size: 22px; }
   .big :global(.phase) { font-size: 15px; }

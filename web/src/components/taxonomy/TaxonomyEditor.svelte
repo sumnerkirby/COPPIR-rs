@@ -17,7 +17,7 @@
   const ex = $derived(ws.exercise!);
 
   let draft = $state<Taxonomy>(structuredClone($state.snapshot(ws.exercise!.taxonomy)));
-  let tab = $state<'statuses' | 'types' | 'sectors'>('statuses');
+  let tab = $state<'statuses' | 'types' | 'sectors' | 'fields'>('statuses');
   let saving = $state(false);
   const icons = iconNames();
 
@@ -33,6 +33,7 @@
     fix(t.asset_types, (x) => x.name);
     fix(t.status_sets, (x) => x.name);
     fix(t.sectors, (x) => x.name);
+    fix(t.fields, (x) => x.label);
     for (const s of t.status_sets) {
       fix(s.values, (x) => x.label);
       if (!s.values.some((v) => v.id === s.default)) s.default = s.values[0]?.id ?? '';
@@ -78,6 +79,7 @@
     <button role="tab" aria-selected={tab === 'statuses'} class:on={tab === 'statuses'} onclick={() => (tab = 'statuses')}>Statuses</button>
     <button role="tab" aria-selected={tab === 'types'} class:on={tab === 'types'} onclick={() => (tab = 'types')}>Asset types</button>
     <button role="tab" aria-selected={tab === 'sectors'} class:on={tab === 'sectors'} onclick={() => (tab = 'sectors')}>Sectors</button>
+    <button role="tab" aria-selected={tab === 'fields'} class:on={tab === 'fields'} onclick={() => (tab = 'fields')}>Fields</button>
   </div>
 
   {#if tab === 'statuses'}
@@ -143,6 +145,43 @@
       </tbody>
     </table>
     <button onclick={() => draft.asset_types.push({ id: '', name: 'New type', icon: 'circle', color: '#888888' })}>+ Asset type</button>
+  {:else if tab === 'fields'}
+    <p class="empty">
+      Extra details every asset can carry, such as an owner, an IP range or a recovery time. Fields marked for players appear on their
+      devices; the rest stay with you.
+    </p>
+    <table>
+      <thead><tr><th>Label</th><th>Kind</th><th>Choices (for a list)</th><th>Players see it</th><th></th></tr></thead>
+      <tbody>
+        {#each draft.fields as f, fi (fi)}
+          <tr>
+            <td><input bind:value={f.label} maxlength="100" aria-label="Label" /></td>
+            <td>
+              <select
+                value={f.kind.type}
+                aria-label="Kind"
+                onchange={(e) => {
+                  const t = e.currentTarget.value as typeof f.kind.type;
+                  f.kind = t === 'select' ? { type: 'select', options: ['Option 1'] } : { type: t };
+                }}
+              >
+                <option value="text">Text</option><option value="number">Number</option><option value="bool">Yes / no</option>
+                <option value="url">Link</option><option value="select">List of choices</option>
+              </select>
+            </td>
+            <td>
+              {#if f.kind.type === 'select'}
+                {@const k = f.kind}
+                <input value={k.options.join(', ')} aria-label="Choices" onchange={(e) => (k.options = e.currentTarget.value.split(',').map((o) => o.trim()).filter(Boolean))} />
+              {/if}
+            </td>
+            <td class="center"><input type="checkbox" bind:checked={f.player_visible} aria-label="Players see it" /></td>
+            <td class="actions"><button class="ghost small" onclick={() => draft.fields.splice(fi, 1)} aria-label="Delete">✕</button></td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+    <button onclick={() => draft.fields.push({ id: '', label: 'New field', kind: { type: 'text' }, player_visible: false })}>+ Field</button>
   {:else}
     {#each draft.sectors as s, si (si)}
       <fieldset>
@@ -194,6 +233,7 @@
   .score { width: 80px; }
   .actions { white-space: nowrap; width: 1%; }
   .preview { width: 30px; text-align: center; }
+  .center { text-align: center; }
   .small { font-size: 12px; padding: 2px 6px; justify-self: start; }
   .members { display: flex; flex-wrap: wrap; gap: 4px 14px; }
   .check { flex-direction: row; display: flex; align-items: center; gap: 6px; color: var(--text); font-size: 13px; }

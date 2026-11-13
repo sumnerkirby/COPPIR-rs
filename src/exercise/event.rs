@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::model::{
-    Annotation, Asset, Clock, Exercise, ImpactRule, Inject, Link, LogEntry, Metric, Phase, PhaseEntry, Poll, Taxonomy,
-    Team, Threshold,
+    Annotation, Asset, Branding, Clock, Exercise, ImpactRule, Inject, Link, LogEntry, Metric, Phase, PhaseEntry, Poll,
+    Taxonomy, Team, Threshold,
 };
 
 // Events are built, serialized and dropped; none lives in a large collection
@@ -116,6 +116,9 @@ pub enum Event {
     ImpactRulesReplaced {
         rules: Vec<ImpactRule>,
     },
+    BrandingChanged {
+        branding: Branding,
+    },
     /// Several changes delivered as one. Sent to players and observers, whose
     /// view of a change is computed for them rather than replayed from the log.
     Batch {
@@ -220,6 +223,7 @@ impl Exercise {
                 self.polls.shift_remove(id);
             }
             Event::ImpactRulesReplaced { rules } => self.impact_rules.clone_from(rules),
+            Event::BrandingChanged { branding } => self.branding = branding.clone(),
             Event::Batch { events } => {
                 for event in events {
                     self.apply(&Envelope {

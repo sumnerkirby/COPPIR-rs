@@ -41,6 +41,8 @@
 
 <header>
   <a href="/" class="brand" onclick={(e) => { e.preventDefault(); router.go('/'); }} aria-label="All exercises">COPPIR</a>
+  {#if ex?.branding.logo}<img src={ex.branding.logo} alt="" class="logo" />{/if}
+  {#if ex?.branding.org}<span class="org muted">{ex.branding.org}</span>{/if}
   <button class="ghost name" onclick={rename} title="Rename">{ex?.name ?? 'Loading…'}</button>
   <span class="conn {ws.live.connection}" role="status" aria-label="Connection {ws.live.connection}" title="Connection: {ws.live.connection}"></span>
   {#if ex}<ExerciseClock />{/if}
@@ -70,7 +72,10 @@
     background: var(--panel); border-bottom: 1px solid var(--line);
   }
   .brand { font-family: var(--mono); color: var(--accent); text-decoration: none; letter-spacing: 0.25em; font-weight: 700; }
-  .name { font-weight: 600; font-size: 15px; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  header { min-width: 0; }
+  .name { font-weight: 600; font-size: 15px; max-width: 40vw; min-width: 60px; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .logo { max-height: 24px; max-width: 100px; }
+  .org { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; flex-shrink: 2; min-width: 0; }
   .conn { width: 9px; height: 9px; border-radius: 50%; background: var(--warn); flex: none; }
   .conn.live { background: var(--accent); }
   .conn.offline { background: var(--danger); }

@@ -51,6 +51,9 @@ pub struct Exercise {
     /// How a status change spreads along links.
     #[serde(default)]
     pub impact_rules: Vec<ImpactRule>,
+    /// How the exercise looks: theme, organisation, logo, banner.
+    #[serde(default)]
+    pub branding: Branding,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -456,6 +459,59 @@ pub struct ImpactRule {
     pub when: Vec<String>,
     pub then_set: String,
     pub then_value: String,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum Theme {
+    /// Green on black, the original COPPIR look.
+    #[default]
+    Terminal,
+    Midnight,
+    /// Light, for bright rooms and printed screenshots.
+    Daylight,
+    /// Maximum contrast.
+    Contrast,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum BannerPosition {
+    #[default]
+    Top,
+    Bottom,
+    Both,
+}
+
+/// A strip across every screen, e.g. "EXERCISE — EXERCISE — EXERCISE".
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct Banner {
+    pub text: String,
+    /// Background colour; the text colour is chosen for contrast.
+    pub color: String,
+    #[serde(default)]
+    pub position: BannerPosition,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct Branding {
+    #[serde(default)]
+    pub theme: Theme,
+    /// Overrides the theme's accent colour.
+    #[serde(default)]
+    pub accent: Option<String>,
+    /// Shown beside the COPPIR name.
+    #[serde(default)]
+    pub org: String,
+    /// A `data:image/...;base64,` URL, kept small.
+    #[serde(default)]
+    pub logo: Option<String>,
+    #[serde(default)]
+    pub banner: Option<Banner>,
 }
 
 /// What firing an inject does to the picture.

@@ -4,6 +4,7 @@
   import type { Asset } from '../../lib/types/Asset';
   import type { AssetPatch } from '../../lib/types/AssetPatch';
   import type { LinkKind } from '../../lib/types/LinkKind';
+  import type { JsonValue } from '../../lib/types/serde_json/JsonValue';
   import Icon from '../ui/Icon.svelte';
   import VisibilityPicker from '../ui/VisibilityPicker.svelte';
 
@@ -42,6 +43,15 @@
       linkTo = '';
       linkLabel = '';
     }
+  }
+
+  /** Set one field; `null` clears it. */
+  async function setField(id: string, value: JsonValue) {
+    // A plain copy of the current values; the request serialises it.
+    const fields: Record<string, JsonValue> = { ...asset.fields };
+    if (value === null) delete fields[id];
+    else fields[id] = value;
+    await edit({ fields });
   }
 
   async function remove() {
@@ -102,6 +112,30 @@
 
   <label>Notes <textarea rows="3" value={asset.notes} maxlength="4000" onchange={(e) => edit({ notes: e.currentTarget.value })}></textarea></label>
   <label>Tags <input value={asset.tags.join(', ')} placeholder="comma, separated" onchange={(e) => edit({ tags: e.currentTarget.value.split(',') })} /></label>
+
+ {#if ex.taxonomy.fields.length}
+    <fieldset class="fields">
+      <legend>Details</legend>
+      {#each ex.taxonomy.fields as f (f.id)}
+        {@const v = asset.fields[f.id]}
+        <label class={f.kind.type === 'bool' ? 'check' : ''}>
+          <span>{f.label} {#if f.player_visible}<Icon name="eye" size={11} label="Players see this" />{/if}</span>
+          {#if f.kind.type === 'bool'}
+            <input type="checkbox" checked={v === true} onchange={(e) => setField(f.id, e.currentTarget.checked)} />
+          {:else if f.kind.type === 'number'}
+            <input type="number" value={typeof v === 'number' ? v : ''} onchange={(e) => setField(f.id, e.currentTarget.value === '' ? null : Number(e.currentTarget.value))} />
+          {:else if f.kind.type === 'select'}
+            <select value={typeof v === 'string' ? v : ''} onchange={(e) => setField(f.id, e.currentTarget.value || null)}>
+              <option value="">—</option>
+              {#each f.kind.options as o (o)}<option value={o}>{o}</option>{/each}
+            </select>
+          {:else}
+            <input type={f.kind.type === 'url' ? 'url' : 'text'} value={typeof v === 'string' ? v : ''} maxlength="4000" onchange={(e) => setField(f.id, e.currentTarget.value || null)} />
+          {/if}
+        </label>
+      {/each}
+    </fieldset>
+  {/if}
 
   <VisibilityPicker label="Visible to" value={asset.visibility} teams={ex.teams} onchange={(visibility) => edit({ visibility })} />
 
@@ -165,6 +199,9 @@
   section { display: grid; gap: 6px; }
   .wrap { flex-wrap: wrap; }
   .kind { width: auto; }
+  .fields { border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; gap: 8px; }
+  .fields legend { padding: 0 4px; }
+  .check { flex-direction: row; display: flex; align-items: center; justify-content: space-between; color: var(--text); }
   .history { padding-left: 18px; font-size: 12px; display: grid; gap: 2px; }
   summary { cursor: pointer; }
 </style>

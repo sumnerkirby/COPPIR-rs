@@ -1,0 +1,1089 @@
+{
+ "format": "coppir.exercise",
+ "version": 1,
+ "exported_at": "2026-01-01T00:00:00+00:00",
+ "exercise": {
+  "id": "template",
+  "name": "Supply-chain compromise",
+  "description": "A routine update from a trusted software vendor carries a backdoor into your monitoring platform. Teams must scope what the agent touched, decide whether to cut the vendor off, and answer customers. Topology view; about 90 minutes.",
+  "taxonomy": {
+   "asset_types": [
+    {
+     "id": "vendor",
+     "name": "Vendor",
+     "icon": "building-2",
+     "color": "#ff6688"
+    },
+    {
+     "id": "pipeline",
+     "name": "Build system",
+     "icon": "git-branch",
+     "color": "#ff6688"
+    },
+    {
+     "id": "update",
+     "name": "Update server",
+     "icon": "cloud-download",
+     "color": "#ff6688"
+    },
+    {
+     "id": "platform",
+     "name": "Monitoring platform",
+     "icon": "activity",
+     "color": "#3399ff"
+    },
+    {
+     "id": "server",
+     "name": "Server",
+     "icon": "server",
+     "color": "#3399ff"
+    },
+    {
+     "id": "data",
+     "name": "Data store",
+     "icon": "database",
+     "color": "#ffb000"
+    },
+    {
+     "id": "customer",
+     "name": "Customer",
+     "icon": "users",
+     "color": "#33cc99"
+    },
+    {
+     "id": "threat",
+     "name": "Threat actor",
+     "icon": "skull",
+     "color": "#ff3333"
+    }
+   ],
+   "status_sets": [
+    {
+     "id": "security",
+     "name": "Security",
+     "display": "fill",
+     "default": "clean",
+     "values": [
+      {
+       "id": "clean",
+       "label": "Clean",
+       "color": "#33cc33",
+       "glyph": "✓",
+       "score": 100
+      },
+      {
+       "id": "monitored",
+       "label": "Monitored",
+       "color": "#3399ff",
+       "glyph": "◦",
+       "score": 70
+      },
+      {
+       "id": "contained",
+       "label": "Contained",
+       "color": "#ff6600",
+       "glyph": "▪",
+       "score": 40
+      },
+      {
+       "id": "under_investigation",
+       "label": "Under Investigation",
+       "color": "#ffaa00",
+       "glyph": "?",
+       "score": 15
+      },
+      {
+       "id": "compromised",
+       "label": "Compromised",
+       "color": "#ff3333",
+       "glyph": "✕",
+       "score": 0
+      }
+     ]
+    },
+    {
+     "id": "operational",
+     "name": "Operational",
+     "display": "ring",
+     "default": "healthy",
+     "values": [
+      {
+       "id": "healthy",
+       "label": "Healthy",
+       "color": "#00ff41",
+       "glyph": "solid",
+       "score": 100
+      },
+      {
+       "id": "degraded",
+       "label": "Degraded",
+       "color": "#ffd700",
+       "glyph": "dashed",
+       "score": 60
+      },
+      {
+       "id": "critical",
+       "label": "Critical",
+       "color": "#ff4500",
+       "glyph": "double",
+       "score": 25
+      },
+      {
+       "id": "offline",
+       "label": "Offline",
+       "color": "#888888",
+       "glyph": "dotted",
+       "score": 0
+      }
+     ]
+    }
+   ],
+   "sectors": [
+    {
+     "id": "vendor",
+     "name": "Vendor",
+     "color": "#ff6688",
+     "asset_types": [
+      "vendor",
+      "pipeline",
+      "update"
+     ],
+     "status_set": "security"
+    },
+    {
+     "id": "estate",
+     "name": "Our estate",
+     "color": "#3399ff",
+     "asset_types": [
+      "platform",
+      "server",
+      "data"
+     ],
+     "status_set": "security"
+    },
+    {
+     "id": "customers",
+     "name": "Customers",
+     "color": "#33cc99",
+     "asset_types": [
+      "customer"
+     ],
+     "status_set": "security"
+    }
+   ],
+   "fields": [
+    {
+     "id": "version",
+     "label": "Agent version",
+     "kind": {
+      "type": "text"
+     },
+     "player_visible": true
+    },
+    {
+     "id": "records",
+     "label": "Customer records",
+     "kind": {
+      "type": "number"
+     },
+     "player_visible": false
+    },
+    {
+     "id": "sla",
+     "label": "Contract SLA",
+     "kind": {
+      "type": "select",
+      "options": [
+       "Gold",
+       "Silver",
+       "Bronze"
+      ]
+     },
+     "player_visible": true
+    }
+   ]
+  },
+  "teams": [
+   {
+    "id": "soc",
+    "name": "Security operations",
+    "color": "#3399ff"
+   },
+   {
+    "id": "eng",
+    "name": "Engineering",
+    "color": "#ffaa00"
+   },
+   {
+    "id": "cx",
+    "name": "Customer & Legal",
+    "color": "#aa88ff"
+   }
+  ],
+  "assets": {
+   "vendor": {
+    "id": "vendor",
+    "name": "Vendor HQ",
+    "type_id": "vendor",
+    "geo": null,
+    "graph": {
+     "x": 0,
+     "y": 0
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "build": {
+    "id": "build",
+    "name": "Vendor build pipeline",
+    "type_id": "pipeline",
+    "geo": null,
+    "graph": {
+     "x": 0,
+     "y": 160
+    },
+    "statuses": {
+     "security": "compromised",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "compromised",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "The attacker has been inside the vendor's build system for five months.",
+    "color": null,
+    "visibility": {
+     "mode": "facilitator"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "updates": {
+    "id": "updates",
+    "name": "Vendor update server",
+    "type_id": "update",
+    "geo": null,
+    "graph": {
+     "x": 0,
+     "y": 320
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "monitor": {
+    "id": "monitor",
+    "name": "Monitoring platform",
+    "type_id": "platform",
+    "geo": null,
+    "graph": {
+     "x": 300,
+     "y": 320
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "version": "2026.4.1"
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "web": {
+    "id": "web",
+    "name": "Web servers",
+    "type_id": "server",
+    "geo": null,
+    "graph": {
+     "x": 600,
+     "y": 160
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "version": "2026.4.1"
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "api": {
+    "id": "api",
+    "name": "API servers",
+    "type_id": "server",
+    "geo": null,
+    "graph": {
+     "x": 600,
+     "y": 320
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "version": "2026.4.1"
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "db": {
+    "id": "db",
+    "name": "Customer database",
+    "type_id": "data",
+    "geo": null,
+    "graph": {
+     "x": 600,
+     "y": 480
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "records": 2400000
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "dw": {
+    "id": "dw",
+    "name": "Analytics warehouse",
+    "type_id": "data",
+    "geo": null,
+    "graph": {
+     "x": 900,
+     "y": 480
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "records": 9100000
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "acme": {
+    "id": "acme",
+    "name": "Northwind Retail",
+    "type_id": "customer",
+    "geo": null,
+    "graph": {
+     "x": 900,
+     "y": 160
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "sla": "Gold"
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "globex": {
+    "id": "globex",
+    "name": "Contoso Health",
+    "type_id": "customer",
+    "geo": null,
+    "graph": {
+     "x": 900,
+     "y": 320
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "sla": "Gold"
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "initech": {
+    "id": "initech",
+    "name": "Fabrikam Logistics",
+    "type_id": "customer",
+    "geo": null,
+    "graph": {
+     "x": 1200,
+     "y": 320
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "sla": "Silver"
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "c2": {
+    "id": "c2",
+    "name": "Attacker infrastructure",
+    "type_id": "threat",
+    "geo": null,
+    "graph": {
+     "x": -300,
+     "y": 320
+    },
+    "statuses": {
+     "security": "compromised",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "compromised",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "facilitator"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   }
+  },
+  "links": {
+   "vendor--build": {
+    "id": "vendor--build",
+    "from": "vendor",
+    "to": "build",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "build--updates": {
+    "id": "build--updates",
+    "from": "build",
+    "to": "updates",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "updates--monitor": {
+    "id": "updates--monitor",
+    "from": "updates",
+    "to": "monitor",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "monitor--web": {
+    "id": "monitor--web",
+    "from": "monitor",
+    "to": "web",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "monitor--api": {
+    "id": "monitor--api",
+    "from": "monitor",
+    "to": "api",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "api--db": {
+    "id": "api--db",
+    "from": "api",
+    "to": "db",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "db--dw": {
+    "id": "db--dw",
+    "from": "db",
+    "to": "dw",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "api--acme": {
+    "id": "api--acme",
+    "from": "api",
+    "to": "acme",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "api--globex": {
+    "id": "api--globex",
+    "from": "api",
+    "to": "globex",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "api--initech": {
+    "id": "api--initech",
+    "from": "api",
+    "to": "initech",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "c2--monitor": {
+    "id": "c2--monitor",
+    "from": "c2",
+    "to": "monitor",
+    "kind": "connects_to",
+    "label": "agent beacon"
+   }
+  },
+  "injects": {
+   "advisory": {
+    "id": "advisory",
+    "title": "Vendor security advisory",
+    "body": "The vendor says version 2026.4.1 'may contain unauthorised code'. No details yet.",
+    "severity": "warning",
+    "audience": {
+     "mode": "all"
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "updates",
+      "set": "security",
+      "value": "under_investigation"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "at",
+     "minutes": 4
+    },
+    "armed": true
+   },
+   "beacon": {
+    "id": "beacon",
+    "title": "Agent talks to an odd host",
+    "body": "The monitoring agent makes DNS requests to a domain registered last month.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "soc"
+     ]
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "monitor",
+      "set": "security",
+      "value": "compromised"
+     },
+     {
+      "type": "reveal_asset",
+      "asset": "c2",
+      "visibility": {
+       "mode": "teams",
+       "teams": [
+        "soc"
+       ]
+      }
+     },
+     {
+      "type": "open_poll",
+      "poll": "cutoff"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "phase",
+     "phase": "scope",
+     "delay_minutes": 2
+    },
+    "armed": true
+   },
+   "removed": {
+    "id": "removed",
+    "title": "Agent removed",
+    "body": "Agents are gone; so is visibility into the estate.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "soc",
+      "eng"
+     ]
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "monitor",
+      "set": "operational",
+      "value": "offline"
+     },
+     {
+      "type": "set_status",
+      "asset": "monitor",
+      "set": "security",
+      "value": "contained"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "poll_choice",
+      "poll": "cutoff",
+      "option": "cutoff-0"
+     }
+    },
+    "armed": true
+   },
+   "blocked": {
+    "id": "blocked",
+    "title": "Egress blocked",
+    "body": "The agent stays, its outbound traffic is blocked. The attacker tries other ports.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "soc"
+     ]
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "api",
+      "set": "security",
+      "value": "under_investigation"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "poll_choice",
+      "poll": "cutoff",
+      "option": "cutoff-1"
+     }
+    },
+    "armed": true
+   },
+   "db-touch": {
+    "id": "db-touch",
+    "title": "Queries against customer data",
+    "body": "Database logs show bulk SELECTs from the agent's service account at 03:00 on three nights.",
+    "severity": "critical",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "soc"
+     ]
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "db",
+      "set": "security",
+      "value": "compromised"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "phase",
+     "phase": "contain",
+     "delay_minutes": 0
+    },
+    "armed": true
+   },
+   "customer": {
+    "id": "customer",
+    "title": "A customer asks",
+    "body": "Contoso Health's CISO asks whether their data was exposed and wants an answer by end of day.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "cx"
+     ]
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "globex",
+      "set": "security",
+      "value": "under_investigation"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "inject_fired",
+      "inject": "db-touch"
+     }
+    },
+    "armed": true
+   },
+   "vendor-truth": {
+    "id": "vendor-truth",
+    "title": "Vendor's build was breached",
+    "body": "The vendor confirms its build pipeline was compromised for months.",
+    "severity": "info",
+    "audience": {
+     "mode": "all"
+    },
+    "effects": [
+     {
+      "type": "reveal_asset",
+      "asset": "build",
+      "visibility": {
+       "mode": "all"
+      }
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "phase",
+     "phase": "contain",
+     "delay_minutes": 15
+    },
+    "armed": true
+   },
+   "clean-build": {
+    "id": "clean-build",
+    "title": "Clean version published",
+    "body": "The vendor publishes 2026.4.3, rebuilt from a clean pipeline.",
+    "severity": "info",
+    "audience": {
+     "mode": "all"
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "updates",
+      "set": "security",
+      "value": "monitored"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "phase",
+     "phase": "recover",
+     "delay_minutes": 5
+    },
+    "armed": true
+   }
+  },
+  "thresholds": [
+   {
+    "id": "customers-hit",
+    "name": "Customer impact",
+    "sector": "customers",
+    "below_pct": 70,
+    "severity": "warning"
+   }
+  ],
+  "log": [],
+  "annotations": {},
+  "metrics": [
+   {
+    "id": "confidence",
+    "name": "Scoping confidence",
+    "value": 20
+   }
+  ],
+  "clock": {
+   "elapsed_ms": 0,
+   "running_since": null
+  },
+  "phases": [
+   {
+    "id": "detect",
+    "name": "Detection",
+    "color": "#3399ff",
+    "target_minutes": 20
+   },
+   {
+    "id": "scope",
+    "name": "Scoping",
+    "color": "#ffaa00",
+    "target_minutes": 25
+   },
+   {
+    "id": "contain",
+    "name": "Containment",
+    "color": "#ff6633",
+    "target_minutes": 25
+   },
+   {
+    "id": "recover",
+    "name": "Recovery",
+    "color": "#33cc99",
+    "target_minutes": 20
+   }
+  ],
+  "phase_log": [],
+  "polls": {
+   "cutoff": {
+    "id": "cutoff",
+    "question": "Do you remove the vendor's agent from every server now, losing monitoring?",
+    "options": [
+     {
+      "id": "cutoff-0",
+      "label": "Remove it everywhere"
+     },
+     {
+      "id": "cutoff-1",
+      "label": "Keep it, block its network traffic"
+     }
+    ],
+    "allow_text": true,
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "soc",
+      "eng"
+     ]
+    },
+    "state": "draft",
+    "duration_minutes": 6,
+    "opened_at": null,
+    "closes_at": null,
+    "closed_at": null,
+    "responses": [],
+    "results": {}
+   }
+  },
+  "impact_rules": [
+   {
+    "id": "dependency-outage",
+    "kind": "depends_on",
+    "set": "operational",
+    "when": [
+     "offline",
+     "critical"
+    ],
+    "then_set": "operational",
+    "then_value": "degraded"
+   }
+  ],
+  "branding": {
+   "theme": "terminal",
+   "accent": null,
+   "org": "",
+   "logo": null,
+   "banner": {
+    "text": "EXERCISE — EXERCISE — EXERCISE",
+    "color": "#b8860b",
+    "position": "both"
+   }
+  },
+  "created_at": "2026-01-01T00:00:00+00:00",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+ }
+}

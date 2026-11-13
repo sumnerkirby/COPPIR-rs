@@ -31,6 +31,7 @@ pub fn inverse(before: &Exercise, e: &Event) -> Vec<Event> {
         Event::ImpactRulesReplaced { .. } => {
             out.push(Event::ImpactRulesReplaced { rules: before.impact_rules.clone() })
         }
+        Event::BrandingChanged { .. } => out.push(Event::BrandingChanged { branding: before.branding.clone() }),
         Event::TeamUpserted { team } => out.push(match before.teams.iter().find(|t| t.id == team.id) {
             Some(old) => Event::TeamUpserted { team: old.clone() },
             None => Event::TeamRemoved { id: team.id.clone() },
@@ -179,6 +180,7 @@ pub fn still_current(now: &Exercise, events: &[Event]) -> bool {
         Event::PollUpserted { poll } => now.polls.get(&poll.id) == Some(poll),
         Event::PollRemoved { id } => !now.polls.contains_key(id),
         Event::ImpactRulesReplaced { rules } => &now.impact_rules == rules,
+        Event::BrandingChanged { branding } => &now.branding == branding,
         Event::TeamRemoved { id } => now.teams.iter().all(|t| &t.id != id),
         Event::Logged { .. }
         | Event::LogRemoved { .. }

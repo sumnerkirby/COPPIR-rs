@@ -17,6 +17,7 @@ pub mod room;
 pub mod routes;
 pub mod state;
 pub mod store;
+pub mod templates;
 pub mod validate;
 
 use std::{future::Future, io, net::SocketAddr};

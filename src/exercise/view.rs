@@ -198,6 +198,9 @@ pub fn diff(before: &Exercise, after: &Exercise) -> Vec<Event> {
     for id in before.polls.keys().filter(|id| !after.polls.contains_key(*id)) {
         out.push(Event::PollRemoved { id: id.clone() });
     }
+    if before.branding != after.branding {
+        out.push(Event::BrandingChanged { branding: after.branding.clone() });
+    }
     if before.impact_rules != after.impact_rules {
         out.push(Event::ImpactRulesReplaced { rules: after.impact_rules.clone() });
     }

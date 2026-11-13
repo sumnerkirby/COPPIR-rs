@@ -3,10 +3,13 @@
   import { router } from '../lib/router.svelte';
   import { ui } from '../lib/ui.svelte';
   import type { ExerciseSummary } from '../lib/types/ExerciseSummary';
+  import type { TemplateSummary } from '../lib/types/TemplateSummary';
   import Icon from './ui/Icon.svelte';
 
   let exercises = $state<ExerciseSummary[] | null>(null);
   let legacy = $state<string[]>([]);
+  let templates = $state<TemplateSummary[]>([]);
+  api.templates().then((t) => (templates = t)).catch(() => {});
   let name = $state('');
   let busy = $state(false);
 
@@ -57,6 +60,11 @@
       const isExercise = (json as { format?: string })?.format === 'coppir.exercise';
       return isExercise ? api.importFile(json) : api.importV1(file.name.replace(/\.(json|coppir)$/i, ''), json);
     });
+    if (snap) open(snap.exercise.id);
+  }
+
+  async function useTemplate(t: TemplateSummary) {
+    const snap = await run(() => api.fromTemplate(t.id));
     if (snap) open(snap.exercise.id);
   }
 
@@ -113,6 +121,21 @@
     </section>
   {/if}
 
+  {#if templates.length}
+    <section>
+      <h2 class="section-title">Start from a ready-made exercise</h2>
+      <div class="templates">
+        {#each templates as t (t.id)}
+          <button class="template" onclick={() => useTemplate(t)} disabled={busy}>
+            <strong>{t.name}</strong>
+            <span class="desc">{t.description}</span>
+            <span class="muted meta">{t.assets} assets · {t.injects} injects · {t.teams} teams · {t.phases} phases · {t.minutes} min</span>
+          </button>
+        {/each}
+      </div>
+    </section>
+  {/if}
+
   <section>
     <h2 class="section-title">Exercises</h2>
     {#if exercises === null}
@@ -149,6 +172,10 @@
   li { display: flex; gap: 4px; align-items: stretch; }
   .open { flex: 1; display: grid; text-align: left; gap: 2px; padding: 10px 12px; background: var(--panel); }
   .open span { font-size: 12px; }
+  .templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 8px; margin-top: 8px; }
+  .template { display: grid; gap: 6px; text-align: left; padding: 12px; background: var(--panel); align-content: start; }
+  .template .desc { font-size: 13px; line-height: 1.4; }
+  .template .meta { font-size: 11px; }
   .legacy { border: 1px dashed var(--line); border-radius: var(--radius); padding: 12px; }
   .legacy li { align-items: center; }
   :global(a.button) {

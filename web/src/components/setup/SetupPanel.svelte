@@ -5,6 +5,7 @@
   import Icon from '../ui/Icon.svelte';
   import MetricWheel from '../MetricWheel.svelte';
   import ImpactRules from './ImpactRules.svelte';
+  import BrandingEditor from './BrandingEditor.svelte';
 
   const ws = useWorkspace();
   const ex = $derived(ws.exercise!);
@@ -125,6 +126,7 @@
 </section>
 
 <ImpactRules />
+<BrandingEditor />
 
 <style>
   section { display: grid; gap: 8px; }

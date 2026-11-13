@@ -44,6 +44,8 @@ pub fn router(app: AppState) -> Router<AppState> {
         .route("/api/v2/exercises/import", post(import_file))
         .route("/api/v2/exercises/{id}/export", get(export))
         .route("/api/v2/exercises/{id}/duplicate", post(duplicate))
+        .route("/api/v2/templates", get(templates))
+        .route("/api/v2/templates/{template}", post(from_template))
         .route("/api/v2/legacy/scenarios", get(legacy_list))
         .route("/api/v2/legacy/scenarios/import", post(legacy_import))
         .route("/api/v2/geocode", post(super::osm::geocode))
@@ -216,6 +218,22 @@ async fn duplicate(
     let (source, _) = app.live.snapshot(&id)?;
     let name = req.name.unwrap_or_else(|| format!("{} (copy)", source.name));
     let ex = exercise::adopt(source, Some(&name), &now())?;
+    let (exercise, seq) = app.live.create(ex, FACILITATOR)?;
+    Ok((StatusCode::CREATED, Json(Snapshot { seq, exercise })))
+}
+
+async fn templates() -> Json<Vec<crate::templates::TemplateSummary>> {
+    Json(crate::templates::list())
+}
+
+/// Start a new exercise from a built-in template.
+async fn from_template(
+    State(app): State<AppState>,
+    Path(template): Path<String>,
+    Valid(req): Valid<Named>,
+) -> Result<(StatusCode, Json<Snapshot>), ApiError> {
+    let source = crate::templates::get(&template).ok_or(ApiError::NotFound("Template not found"))?;
+    let ex = exercise::adopt(source, req.name.as_deref(), &now())?;
     let (exercise, seq) = app.live.create(ex, FACILITATOR)?;
     Ok((StatusCode::CREATED, Json(Snapshot { seq, exercise })))
 }

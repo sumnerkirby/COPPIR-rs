@@ -58,6 +58,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       # The API suite needs no GUI libraries.
       - run: cargo test --no-default-features
+      - name: Templates are up to date
+        if: runner.os == 'Linux'
+        run: python3 templates/generate.py && git diff --exit-code -- templates
       - name: TypeScript bindings are up to date
         if: runner.os == 'Linux'
         # `cargo test` regenerates web/src/lib/types; a diff means someone

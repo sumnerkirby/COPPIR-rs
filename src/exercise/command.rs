@@ -10,9 +10,9 @@ use ts_rs::TS;
 use super::{
     event::Event,
     model::{
-        Annotation, Asset, Clock, Condition, Effect, Exercise, FieldKind, GeoPoint, GraphPoint, ImpactRule, Inject,
-        Link, LinkKind, LogEntry, Metric, NewAsset, Phase, PhaseEntry, Poll, PollOption, PollResponse, PollState,
-        Severity, Shape, StatusChange, Taxonomy, Team, Threshold, Trigger, Visibility,
+        Annotation, Asset, Branding, Clock, Condition, Effect, Exercise, FieldKind, GeoPoint, GraphPoint, ImpactRule,
+        Inject, Link, LinkKind, LogEntry, Metric, NewAsset, Phase, PhaseEntry, Poll, PollOption, PollResponse,
+        PollState, Severity, Shape, StatusChange, Taxonomy, Team, Threshold, Trigger, Visibility,
     },
     taxonomy,
     view::Audience,
@@ -24,6 +24,8 @@ use crate::{
 };
 
 pub const BULK_MAX: usize = 5000;
+/// A logo is a base64 data URL: 256 KB of image is about 350,000 characters.
+const LOGO_MAX: usize = 350_000;
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -214,6 +216,13 @@ pub enum Command {
     SetImpactRules {
         rules: Vec<ImpactRule>,
     },
+    SetBranding {
+        branding: Branding,
+    },
+    /// Place many assets on the topology graph at once (after an auto-layout).
+    SetGraphPositions {
+        positions: BTreeMap<String, GraphPoint>,
+    },
     /// Reverse the most recent change that has not been undone yet.
     Undo,
 }
@@ -338,7 +347,8 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
                 .values()
                 .filter_map(|a| {
                     let statuses = fit_statuses(&taxonomy, &a.statuses);
-                    (statuses != a.statuses).then(|| Asset { statuses, ..a.clone() })
+                    let fields = fit_fields(&taxonomy, &a.fields);
+                    (statuses != a.statuses || fields != a.fields).then(|| Asset { statuses, fields, ..a.clone() })
                 })
                 .collect();
             vec![Event::TaxonomyReplaced { taxonomy, assets }]
@@ -944,6 +954,51 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
             events
         }
 
+        Command::SetBranding { mut branding } => {
+            c.max_len("org", &branding.org, 100);
+            branding.org = branding.org.trim().to_owned();
+            c.color("accent", branding.accent.as_deref());
+            if let Some(logo) = &branding.logo {
+                let ok_type = ["png", "jpeg", "webp", "svg+xml", "gif"]
+                    .iter()
+                    .any(|t| logo.starts_with(&format!("data:image/{t};base64,")));
+                if !ok_type {
+                    c.fail("logo", "must be a PNG, JPEG, WebP, GIF or SVG image");
+                } else if logo.len() > LOGO_MAX {
+                    c.fail("logo", "must be under 256 KB");
+                }
+            }
+            if let Some(b) = &mut branding.banner {
+                c.nested(&["banner"], |c| {
+                    c.label("text", &mut b.text, 120);
+                    c.color("color", Some(&b.color));
+                });
+            }
+            c.finish()?;
+            if branding == ex.branding {
+                return Ok(vec![]);
+            }
+            vec![Event::BrandingChanged { branding }]
+        }
+
+        Command::SetGraphPositions { positions } => {
+            if positions.len() > BULK_MAX {
+                c.fail("positions", format!("at most {BULK_MAX} per request"));
+            }
+            if positions.values().any(|p| !p.x.is_finite() || !p.y.is_finite() || p.x.abs() > 1e7 || p.y.abs() > 1e7) {
+                c.fail("positions", "positions must be finite numbers");
+            }
+            c.finish()?;
+            let mut assets = Vec::new();
+            for (id, p) in positions {
+                let a = ex.assets.get(&id).ok_or(not_found("Asset not found"))?;
+                if a.graph != Some(p) {
+                    assets.push(Asset { graph: Some(p), ..a.clone() });
+                }
+            }
+            if assets.is_empty() { vec![] } else { vec![Event::AssetsUpserted { assets }] }
+        }
+
         // `Live` handles undo itself, because it needs the history of changes.
         Command::Undo => return Err(ApiError::BadRequest("Undo is not available here".into())),
     };
@@ -1115,6 +1170,22 @@ fn set_status(a: &mut Asset, set: &str, value: &str, now: &str) {
         a.history.push(StatusChange { set: set.to_owned(), value: value.to_owned(), at: now.to_owned() });
         a.statuses.insert(set.to_owned(), value.to_owned());
     }
+}
+
+/// Field values that still fit the taxonomy: known fields, and select values
+/// that are still among the options. Anything else is dropped.
+pub fn fit_fields(t: &Taxonomy, fields: &BTreeMap<String, serde_json::Value>) -> BTreeMap<String, serde_json::Value> {
+    fields
+        .iter()
+        .filter(|(id, v)| {
+            t.fields.iter().find(|f| &f.id == *id).is_some_and(|f| match (&f.kind, v) {
+                (FieldKind::Select { options }, serde_json::Value::String(s)) => options.contains(s),
+                (FieldKind::Select { .. }, _) => false,
+                _ => true,
+            })
+        })
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect()
 }
 
 /// Every set in `t`, keeping current values that are still valid and falling

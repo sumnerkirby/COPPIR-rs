@@ -16,7 +16,7 @@
   } from 'maplibre-gl';
   // MapLibre 6 parses tiles in a separate worker file; serve Vite's copy.
   import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import { centroid, circle, formatMi, hull, pathMi, type Position } from '../../lib/geo';
   import { drawMarker, markerId, parseMarkerId } from '../../lib/markers';
   import { scoreColor, sectorHealth, statusValue } from '../../lib/sitrep';
@@ -33,7 +33,13 @@
   const ex = $derived(ws.exercise!);
 
   // Keyless, free vector tiles. Offline region packs arrive in milestone 6.
-  const STYLE = 'https://tiles.openfreemap.org/styles/dark';
+  const DARK = 'https://tiles.openfreemap.org/styles/dark';
+  const LIGHT = 'https://tiles.openfreemap.org/styles/positron';
+  // Chosen when the map is created; a theme change remounts the map.
+  const light = untrack(() => ws.exercise?.branding.theme === 'daylight');
+  const STYLE = light ? LIGHT : DARK;
+  const TEXT = light ? '#14202b' : '#d6f5dc';
+  const HALO = light ? '#ffffff' : '#050a06';
   const FONT = ['Noto Sans Regular'];
 
   let container: HTMLDivElement;
@@ -234,7 +240,7 @@
         source: 'assets',
         filter: ['has', 'point_count'],
         paint: {
-          'circle-color': '#0b130d',
+          'circle-color': light ? '#ffffff' : '#0b130d',
           'circle-stroke-color': '#00ff41',
           'circle-stroke-width': 2,
           'circle-radius': ['step', ['get', 'point_count'], 16, 10, 20, 50, 26],
@@ -246,7 +252,7 @@
         source: 'assets',
         filter: ['has', 'point_count'],
         layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-font': FONT, 'text-size': 12 },
-        paint: { 'text-color': '#d6f5dc' },
+        paint: { 'text-color': TEXT },
       });
       m.addLayer({
         id: 'assets',
@@ -268,7 +274,7 @@
         minzoom: 13,
         filter: ['!', ['has', 'point_count']],
         layout: { 'text-field': ['get', 'name'], 'text-font': FONT, 'text-size': 11, 'text-offset': [0, 1.6], 'text-anchor': 'top', 'text-optional': true },
-        paint: { 'text-color': '#d6f5dc', 'text-halo-color': '#050a06', 'text-halo-width': 1.5 },
+        paint: { 'text-color': TEXT, 'text-halo-color': HALO, 'text-halo-width': 1.5 },
       });
       m.addLayer({
         id: 'zone-labels',
@@ -514,11 +520,11 @@
   .map { position: absolute; inset: 0; }
   .tip {
     position: absolute; z-index: 15; pointer-events: none; display: grid; gap: 1px; max-width: 280px;
-    background: rgba(11, 19, 13, 0.95); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 9px; font-size: 12px;
+    background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 9px; font-size: 12px;
   }
   .hint {
     position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%); z-index: 12; display: flex; gap: 10px; align-items: center;
-    background: rgba(11, 19, 13, 0.95); border: 1px solid var(--accent); border-radius: var(--radius); padding: 6px 10px; font-size: 13px;
+    background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--accent); border-radius: var(--radius); padding: 6px 10px; font-size: 13px;
   }
   .small { font-size: 12px; padding: 2px 8px; }
 </style>

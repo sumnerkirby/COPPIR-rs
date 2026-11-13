@@ -73,6 +73,7 @@ pub fn blank(name: &str, description: &str, now: &str) -> Result<Exercise, ApiEr
         phase_log: vec![],
         polls: Default::default(),
         impact_rules: vec![],
+        branding: Default::default(),
         created_at: now.to_owned(),
         updated_at: now.to_owned(),
     })

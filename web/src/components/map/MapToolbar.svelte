@@ -121,7 +121,7 @@
 <style>
   .toolbar { position: absolute; top: 10px; left: 10px; z-index: 11; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
   .search { position: relative; display: flex; gap: 4px; width: min(340px, calc(100vw - 90px)); }
-  .search input { background: rgba(5, 10, 6, 0.92); }
+  .search input { background: color-mix(in srgb, var(--bg) 92%, transparent); }
   .results {
     position: absolute; top: calc(100% + 4px); left: 0; right: 0; list-style: none; margin: 0; padding: 4px; z-index: 2;
     background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); display: grid; gap: 2px; max-height: 50vh; overflow: auto;
@@ -129,7 +129,7 @@
   .results li { display: flex; gap: 4px; align-items: center; }
   .results .ghost { text-align: left; font-size: 12px; }
   .tools { display: flex; flex-direction: column; gap: 4px; }
-  .tools > button, .drop > button { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; background: rgba(11, 19, 13, 0.92); }
+  .tools > button, .drop > button { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--panel) 94%, transparent); }
   .on { background: var(--accent) !important; color: var(--accent-ink); border-color: var(--accent); }
   .drop { position: relative; }
   .pop {

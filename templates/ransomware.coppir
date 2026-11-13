@@ -1,0 +1,1201 @@
+{
+ "format": "coppir.exercise",
+ "version": 1,
+ "exported_at": "2026-01-01T00:00:00+00:00",
+ "exercise": {
+  "id": "template",
+  "name": "Hospital ransomware",
+  "description": "A regional hospital's network is encrypted mid-shift. Clinical systems fail one after another while the teams decide whether to isolate the network, how to keep patients safe, and whether to pay. Topology view; about 100 minutes.",
+  "taxonomy": {
+   "asset_types": [
+    {
+     "id": "identity",
+     "name": "Identity",
+     "icon": "key-round",
+     "color": "#aa88ff"
+    },
+    {
+     "id": "server",
+     "name": "Server",
+     "icon": "server",
+     "color": "#3399ff"
+    },
+    {
+     "id": "clinical",
+     "name": "Clinical system",
+     "icon": "heart-pulse",
+     "color": "#ff6688"
+    },
+    {
+     "id": "endpoint",
+     "name": "Workstations",
+     "icon": "monitor",
+     "color": "#888888"
+    },
+    {
+     "id": "network",
+     "name": "Network",
+     "icon": "network",
+     "color": "#00ccaa"
+    },
+    {
+     "id": "backup",
+     "name": "Backup",
+     "icon": "hard-drive",
+     "color": "#ffb000"
+    },
+    {
+     "id": "department",
+     "name": "Department",
+     "icon": "hospital",
+     "color": "#ff6688"
+    },
+    {
+     "id": "threat",
+     "name": "Threat actor",
+     "icon": "skull",
+     "color": "#ff3333"
+    }
+   ],
+   "status_sets": [
+    {
+     "id": "security",
+     "name": "Security",
+     "display": "fill",
+     "default": "clean",
+     "values": [
+      {
+       "id": "clean",
+       "label": "Clean",
+       "color": "#33cc33",
+       "glyph": "✓",
+       "score": 100
+      },
+      {
+       "id": "monitored",
+       "label": "Monitored",
+       "color": "#3399ff",
+       "glyph": "◦",
+       "score": 70
+      },
+      {
+       "id": "contained",
+       "label": "Contained",
+       "color": "#ff6600",
+       "glyph": "▪",
+       "score": 40
+      },
+      {
+       "id": "under_investigation",
+       "label": "Under Investigation",
+       "color": "#ffaa00",
+       "glyph": "?",
+       "score": 15
+      },
+      {
+       "id": "compromised",
+       "label": "Compromised",
+       "color": "#ff3333",
+       "glyph": "✕",
+       "score": 0
+      }
+     ]
+    },
+    {
+     "id": "operational",
+     "name": "Operational",
+     "display": "ring",
+     "default": "healthy",
+     "values": [
+      {
+       "id": "healthy",
+       "label": "Healthy",
+       "color": "#00ff41",
+       "glyph": "solid",
+       "score": 100
+      },
+      {
+       "id": "degraded",
+       "label": "Degraded",
+       "color": "#ffd700",
+       "glyph": "dashed",
+       "score": 60
+      },
+      {
+       "id": "critical",
+       "label": "Critical",
+       "color": "#ff4500",
+       "glyph": "double",
+       "score": 25
+      },
+      {
+       "id": "offline",
+       "label": "Offline",
+       "color": "#888888",
+       "glyph": "dotted",
+       "score": 0
+      }
+     ]
+    }
+   ],
+   "sectors": [
+    {
+     "id": "it",
+     "name": "IT",
+     "color": "#3399ff",
+     "asset_types": [
+      "identity",
+      "server",
+      "endpoint",
+      "network",
+      "backup"
+     ],
+     "status_set": "security"
+    },
+    {
+     "id": "clinical",
+     "name": "Clinical",
+     "color": "#ff6688",
+     "asset_types": [
+      "clinical",
+      "department"
+     ],
+     "status_set": "security"
+    }
+   ],
+   "fields": [
+    {
+     "id": "owner",
+     "label": "Owner",
+     "kind": {
+      "type": "text"
+     },
+     "player_visible": true
+    },
+    {
+     "id": "tier",
+     "label": "Criticality",
+     "kind": {
+      "type": "select",
+      "options": [
+       "Tier 1",
+       "Tier 2",
+       "Tier 3"
+      ]
+     },
+     "player_visible": true
+    },
+    {
+     "id": "rto",
+     "label": "Recovery time objective (hours)",
+     "kind": {
+      "type": "number"
+     },
+     "player_visible": true
+    },
+    {
+     "id": "ip",
+     "label": "IP range",
+     "kind": {
+      "type": "text"
+     },
+     "player_visible": false
+    }
+   ]
+  },
+  "teams": [
+   {
+    "id": "it",
+    "name": "IT & Security",
+    "color": "#3399ff"
+   },
+   {
+    "id": "clinical",
+    "name": "Clinical leadership",
+    "color": "#ffaa00"
+   },
+   {
+    "id": "comms",
+    "name": "Legal & Comms",
+    "color": "#aa88ff"
+   }
+  ],
+  "assets": {
+   "fw": {
+    "id": "fw",
+    "name": "Perimeter firewall",
+    "type_id": "network",
+    "geo": null,
+    "graph": {
+     "x": 0,
+     "y": 0
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "tier": "Tier 1",
+     "owner": "Network team",
+     "rto": 2,
+     "ip": "10.0.0.0/30"
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "vpn": {
+    "id": "vpn",
+    "name": "Remote access VPN",
+    "type_id": "network",
+    "geo": null,
+    "graph": {
+     "x": 250,
+     "y": 0
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "tier": "Tier 2",
+     "owner": "Network team",
+     "rto": 8,
+     "ip": "10.0.1.0/24"
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "ad": {
+    "id": "ad",
+    "name": "Active Directory",
+    "type_id": "identity",
+    "geo": null,
+    "graph": {
+     "x": 0,
+     "y": 160
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "tier": "Tier 1",
+     "owner": "IT operations",
+     "rto": 4,
+     "ip": "10.1.0.10"
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "ehr": {
+    "id": "ehr",
+    "name": "Electronic health records",
+    "type_id": "clinical",
+    "geo": null,
+    "graph": {
+     "x": -250,
+     "y": 320
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "tier": "Tier 1",
+     "owner": "Clinical IT",
+     "rto": 4
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "pacs": {
+    "id": "pacs",
+    "name": "Imaging (PACS)",
+    "type_id": "clinical",
+    "geo": null,
+    "graph": {
+     "x": 0,
+     "y": 320
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "tier": "Tier 1",
+     "owner": "Radiology",
+     "rto": 6
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "lab": {
+    "id": "lab",
+    "name": "Laboratory system",
+    "type_id": "clinical",
+    "geo": null,
+    "graph": {
+     "x": 250,
+     "y": 320
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "tier": "Tier 2",
+     "owner": "Pathology",
+     "rto": 12
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "ws": {
+    "id": "ws",
+    "name": "Clinical workstations",
+    "type_id": "endpoint",
+    "geo": null,
+    "graph": {
+     "x": 500,
+     "y": 160
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "tier": "Tier 2",
+     "owner": "Desktop support",
+     "rto": 24
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "backup": {
+    "id": "backup",
+    "name": "Backup server",
+    "type_id": "backup",
+    "geo": null,
+    "graph": {
+     "x": -500,
+     "y": 160
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {
+     "tier": "Tier 1",
+     "owner": "IT operations",
+     "rto": 2,
+     "ip": "10.1.9.5"
+    },
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "ed": {
+    "id": "ed",
+    "name": "Emergency department",
+    "type_id": "department",
+    "geo": null,
+    "graph": {
+     "x": -250,
+     "y": 480
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "radiology": {
+    "id": "radiology",
+    "name": "Radiology",
+    "type_id": "department",
+    "geo": null,
+    "graph": {
+     "x": 0,
+     "y": 480
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "wards": {
+    "id": "wards",
+    "name": "Inpatient wards",
+    "type_id": "department",
+    "geo": null,
+    "graph": {
+     "x": 250,
+     "y": 480
+    },
+    "statuses": {
+     "security": "clean",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "clean",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "",
+    "color": null,
+    "visibility": {
+     "mode": "all"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   },
+   "c2": {
+    "id": "c2",
+    "name": "Attacker command server",
+    "type_id": "threat",
+    "geo": null,
+    "graph": {
+     "x": 250,
+     "y": -160
+    },
+    "statuses": {
+     "security": "compromised",
+     "operational": "healthy"
+    },
+    "history": [
+     {
+      "set": "security",
+      "value": "compromised",
+      "at": "2026-01-01T00:00:00+00:00"
+     },
+     {
+      "set": "operational",
+      "value": "healthy",
+      "at": "2026-01-01T00:00:00+00:00"
+     }
+    ],
+    "fields": {},
+    "tags": [],
+    "notes": "Reached through a stolen VPN account. Reveal to IT once they find the beacon.",
+    "color": null,
+    "visibility": {
+     "mode": "facilitator"
+    },
+    "created_at": "2026-01-01T00:00:00+00:00"
+   }
+  },
+  "links": {
+   "fw--vpn": {
+    "id": "fw--vpn",
+    "from": "fw",
+    "to": "vpn",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "fw--ad": {
+    "id": "fw--ad",
+    "from": "fw",
+    "to": "ad",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "ad--ehr": {
+    "id": "ad--ehr",
+    "from": "ad",
+    "to": "ehr",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "ad--pacs": {
+    "id": "ad--pacs",
+    "from": "ad",
+    "to": "pacs",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "ad--lab": {
+    "id": "ad--lab",
+    "from": "ad",
+    "to": "lab",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "ad--ws": {
+    "id": "ad--ws",
+    "from": "ad",
+    "to": "ws",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "ehr--ed": {
+    "id": "ehr--ed",
+    "from": "ehr",
+    "to": "ed",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "ehr--wards": {
+    "id": "ehr--wards",
+    "from": "ehr",
+    "to": "wards",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "pacs--radiology": {
+    "id": "pacs--radiology",
+    "from": "pacs",
+    "to": "radiology",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "lab--wards": {
+    "id": "lab--wards",
+    "from": "lab",
+    "to": "wards",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "ad--backup": {
+    "id": "ad--backup",
+    "from": "ad",
+    "to": "backup",
+    "kind": "depends_on",
+    "label": ""
+   },
+   "c2--vpn": {
+    "id": "c2--vpn",
+    "from": "c2",
+    "to": "vpn",
+    "kind": "connects_to",
+    "label": "stolen credentials"
+   }
+  },
+  "injects": {
+   "beacon": {
+    "id": "beacon",
+    "title": "Odd outbound traffic",
+    "body": "The SOC sees regular outbound connections from a VPN address to an unfamiliar host every 60 seconds.",
+    "severity": "info",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "it"
+     ]
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "vpn",
+      "set": "security",
+      "value": "under_investigation"
+     },
+     {
+      "type": "reveal_asset",
+      "asset": "c2",
+      "visibility": {
+       "mode": "teams",
+       "teams": [
+        "it"
+       ]
+      }
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "at",
+     "minutes": 3
+    },
+    "armed": true
+   },
+   "note": {
+    "id": "note",
+    "title": "Ransom notes on screens",
+    "body": "Workstations in the emergency department show a ransom note. Files are renamed with a .lockd extension.",
+    "severity": "critical",
+    "audience": {
+     "mode": "all"
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "ws",
+      "set": "security",
+      "value": "compromised"
+     },
+     {
+      "type": "set_status",
+      "asset": "ws",
+      "set": "operational",
+      "value": "offline"
+     },
+     {
+      "type": "open_poll",
+      "poll": "isolate"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "phase",
+     "phase": "contain",
+     "delay_minutes": 0
+    },
+    "armed": true
+   },
+   "ad-hit": {
+    "id": "ad-hit",
+    "title": "Domain controller encrypted",
+    "body": "Active Directory is unreachable. Staff cannot log in.",
+    "severity": "critical",
+    "audience": {
+     "mode": "all"
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "ad",
+      "set": "security",
+      "value": "compromised"
+     },
+     {
+      "type": "set_status",
+      "asset": "ad",
+      "set": "operational",
+      "value": "offline"
+     }
+    ],
+    "notes": "The cautious path cost them the domain. Impact rules take EHR, PACS and the lab down with it.",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "poll_choice",
+      "poll": "isolate",
+      "option": "isolate-1"
+     }
+    },
+    "armed": true
+   },
+   "isolated": {
+    "id": "isolated",
+    "title": "Network isolated",
+    "body": "Everything is off the network. Clinical teams switch to paper.",
+    "severity": "warning",
+    "audience": {
+     "mode": "all"
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "ehr",
+      "set": "operational",
+      "value": "degraded"
+     },
+     {
+      "type": "set_status",
+      "asset": "pacs",
+      "set": "operational",
+      "value": "degraded"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "poll_choice",
+      "poll": "isolate",
+      "option": "isolate-0"
+     }
+    },
+    "armed": true
+   },
+   "divert": {
+    "id": "divert",
+    "title": "Ambulance diversion",
+    "body": "The emergency department asks to divert ambulances to the next hospital.",
+    "severity": "critical",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "clinical"
+     ]
+    },
+    "effects": [],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "threshold_breached",
+      "threshold": "clinical-low"
+     }
+    },
+    "armed": true
+   },
+   "backups": {
+    "id": "backups",
+    "title": "Backups were encrypted too",
+    "body": "The backup server's volumes carry the same extension. The last clean copy is offline tape from last week.",
+    "severity": "critical",
+    "audience": {
+     "mode": "all"
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "backup",
+      "set": "security",
+      "value": "compromised"
+     },
+     {
+      "type": "open_poll",
+      "poll": "pay"
+     }
+    ],
+    "notes": "This is the pressure point for the payment decision.",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "phase",
+     "phase": "eradicate",
+     "delay_minutes": 5
+    },
+    "armed": true
+   },
+   "press": {
+    "id": "press",
+    "title": "Reporter calls",
+    "body": "A local reporter asks whether patients are being turned away.",
+    "severity": "info",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "comms"
+     ]
+    },
+    "effects": [],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "phase",
+     "phase": "eradicate",
+     "delay_minutes": 10
+    },
+    "armed": true
+   },
+   "paid": {
+    "id": "paid",
+    "title": "Decryptor partly works",
+    "body": "The decryptor restores 60 % of files; EHR database files are corrupted.",
+    "severity": "warning",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "comms",
+      "it"
+     ]
+    },
+    "effects": [],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "poll_choice",
+      "poll": "pay",
+      "option": "pay-0"
+     }
+    },
+    "armed": true
+   },
+   "refused": {
+    "id": "refused",
+    "title": "Data posted",
+    "body": "The attackers post a sample of patient records on their leak site.",
+    "severity": "critical",
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "comms"
+     ]
+    },
+    "effects": [],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "when",
+     "condition": {
+      "type": "poll_choice",
+      "poll": "pay",
+      "option": "pay-1"
+     }
+    },
+    "armed": true
+   },
+   "restore": {
+    "id": "restore",
+    "title": "EHR back from tape",
+    "body": "EHR is restored from tape. A week of records must be re-entered.",
+    "severity": "info",
+    "audience": {
+     "mode": "all"
+    },
+    "effects": [
+     {
+      "type": "set_status",
+      "asset": "ehr",
+      "set": "security",
+      "value": "monitored"
+     },
+     {
+      "type": "set_status",
+      "asset": "ehr",
+      "set": "operational",
+      "value": "degraded"
+     }
+    ],
+    "notes": "",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "fired_at": null,
+    "trigger": {
+     "type": "phase",
+     "phase": "recover",
+     "delay_minutes": 10
+    },
+    "armed": true
+   }
+  },
+  "thresholds": [
+   {
+    "id": "clinical-low",
+    "name": "Clinical systems failing",
+    "sector": "clinical",
+    "below_pct": 50,
+    "severity": "critical"
+   }
+  ],
+  "log": [],
+  "annotations": {},
+  "metrics": [
+   {
+    "id": "beds",
+    "name": "Beds available",
+    "value": 80
+   },
+   {
+    "id": "diversion",
+    "name": "Ambulances accepted",
+    "value": 100
+   }
+  ],
+  "clock": {
+   "elapsed_ms": 0,
+   "running_since": null
+  },
+  "phases": [
+   {
+    "id": "detect",
+    "name": "Detection",
+    "color": "#3399ff",
+    "target_minutes": 15
+   },
+   {
+    "id": "contain",
+    "name": "Containment",
+    "color": "#ffaa00",
+    "target_minutes": 30
+   },
+   {
+    "id": "eradicate",
+    "name": "Eradication",
+    "color": "#ff6633",
+    "target_minutes": 25
+   },
+   {
+    "id": "recover",
+    "name": "Recovery",
+    "color": "#33cc99",
+    "target_minutes": 30
+   }
+  ],
+  "phase_log": [],
+  "polls": {
+   "isolate": {
+    "id": "isolate",
+    "question": "Do you take the whole network offline now?",
+    "options": [
+     {
+      "id": "isolate-0",
+      "label": "Isolate everything now"
+     },
+     {
+      "id": "isolate-1",
+      "label": "Isolate only affected segments"
+     }
+    ],
+    "allow_text": true,
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "it",
+      "clinical"
+     ]
+    },
+    "state": "draft",
+    "duration_minutes": 5,
+    "opened_at": null,
+    "closes_at": null,
+    "closed_at": null,
+    "responses": [],
+    "results": {}
+   },
+   "pay": {
+    "id": "pay",
+    "question": "The attackers want 50 BTC within 24 hours. Recommend paying?",
+    "options": [
+     {
+      "id": "pay-0",
+      "label": "Pay"
+     },
+     {
+      "id": "pay-1",
+      "label": "Refuse"
+     }
+    ],
+    "allow_text": true,
+    "audience": {
+     "mode": "teams",
+     "teams": [
+      "comms",
+      "clinical"
+     ]
+    },
+    "state": "draft",
+    "duration_minutes": 8,
+    "opened_at": null,
+    "closes_at": null,
+    "closed_at": null,
+    "responses": [],
+    "results": {}
+   }
+  },
+  "impact_rules": [
+   {
+    "id": "dependency-outage",
+    "kind": "depends_on",
+    "set": "operational",
+    "when": [
+     "offline",
+     "critical"
+    ],
+    "then_set": "operational",
+    "then_value": "degraded"
+   }
+  ],
+  "branding": {
+   "theme": "terminal",
+   "accent": null,
+   "org": "",
+   "logo": null,
+   "banner": {
+    "text": "EXERCISE — EXERCISE — EXERCISE",
+    "color": "#b8860b",
+    "position": "both"
+   }
+  },
+  "created_at": "2026-01-01T00:00:00+00:00",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+ }
+}
