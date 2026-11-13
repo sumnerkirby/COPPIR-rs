@@ -53,6 +53,7 @@ pub fn router(app: AppState) -> Router<AppState> {
         .route("/api/v2/osm/search", post(super::osm::search))
         .route("/api/v2/exercises/{id}", delete(remove))
         .route("/api/v2/exercises/{id}/events", get(events))
+        .route("/api/v2/exercises/{id}/report", get(report))
         .route_layer(middleware::from_fn_with_state(app, auth::facilitator_only));
 
     // Participants reach these too; each handler shows them only their view.
@@ -187,21 +188,66 @@ async fn import_file(
     Ok((StatusCode::CREATED, Json(Snapshot { seq, exercise })))
 }
 
+#[derive(Deserialize)]
+pub struct ReportQuery {
+    format: Option<String>,
+    #[serde(default)]
+    download: bool,
+}
+
+/// The after-action report: `?format=html` (the default) to read or print,
+/// `?format=md` for Markdown. `&download=true` saves it as a file.
+async fn report(
+    State(app): State<AppState>,
+    Path(id): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> Result<Response, ApiError> {
+    let (exercise, _) = app.live.snapshot(&id)?;
+    let events = app.live.store().events_after(&id, 0)?;
+    let name = file_name(&exercise.name);
+    let (format, mime, ext) = match q.format.as_deref() {
+        None | Some("html") => (crate::report::Format::Html, "text/html; charset=utf-8", "html"),
+        Some("md" | "markdown") => (crate::report::Format::Markdown, "text/markdown; charset=utf-8", "md"),
+        Some(_) => return Err(ApiError::BadRequest("format must be html or md".into())),
+    };
+    let body =
+        tokio::task::spawn_blocking(move || crate::report::render(&exercise, &events, &now(), format).into_bytes())
+            .await
+            .map_err(ApiError::internal)?;
+    let disposition = if q.download { "attachment" } else { "inline" };
+    Ok((
+        [
+            (header::CONTENT_TYPE, mime.to_owned()),
+            (header::CONTENT_DISPOSITION, format!("{disposition}; filename=\"{name} AAR.{ext}\"")),
+            // Everything in it is escaped; this is in case something is not.
+            (
+                header::CONTENT_SECURITY_POLICY,
+                "default-src 'none'; style-src 'unsafe-inline'; img-src data:".to_owned(),
+            ),
+        ],
+        body,
+    )
+        .into_response())
+}
+
+/// A name safe to put in a `Content-Disposition` header.
+fn file_name(name: &str) -> String {
+    let s: String =
+        name.chars().map(|c| if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ' ') { c } else { '_' }).collect();
+    s.trim().to_owned()
+}
+
 /// Download an exercise as a `.coppir` file: its current state, without the
 /// event history.
 async fn export(State(app): State<AppState>, Path(id): Path<String>) -> Result<Response, ApiError> {
     let (exercise, _) = app.live.snapshot(&id)?;
-    let filename: String = exercise
-        .name
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ' ') { c } else { '_' })
-        .collect();
+    let filename = file_name(&exercise.name);
     let file = ExerciseFile { format: FILE_FORMAT.into(), version: FILE_VERSION, exported_at: now(), exercise };
     let body = serde_json::to_vec_pretty(&file).map_err(ApiError::internal)?;
     Ok((
         [
             (header::CONTENT_TYPE, "application/json".to_owned()),
-            (header::CONTENT_DISPOSITION, format!("attachment; filename=\"{}.coppir\"", filename.trim())),
+            (header::CONTENT_DISPOSITION, format!("attachment; filename=\"{filename}.coppir\"")),
         ],
         body,
     )

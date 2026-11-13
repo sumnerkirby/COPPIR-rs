@@ -11,6 +11,7 @@ import type { Metric } from "./Metric";
 import type { Phase } from "./Phase";
 import type { PhaseEntry } from "./PhaseEntry";
 import type { Poll } from "./Poll";
+import type { Review } from "./Review";
 import type { Taxonomy } from "./Taxonomy";
 import type { Team } from "./Team";
 import type { Threshold } from "./Threshold";
@@ -46,4 +47,8 @@ impact_rules: Array<ImpactRule>,
 /**
  * How the exercise looks: theme, organisation, logo, banner.
  */
-branding: Branding, created_at: string, updated_at: string, };
+branding: Branding, 
+/**
+ * The hot wash: what the facilitator wrote down after the exercise.
+ */
+review: Review, created_at: string, updated_at: string, };

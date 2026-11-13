@@ -789,7 +789,23 @@
      "type": "at",
      "minutes": 3
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "beacon-x1",
+      "text": "Open an incident and pull VPN logs for the address",
+      "team": "it",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "beacon-x2",
+      "text": "Disable the VPN account involved",
+      "team": "it",
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "note": {
     "id": "note",
@@ -825,7 +841,30 @@
      "phase": "contain",
      "delay_minutes": 0
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "note-x1",
+      "text": "Isolate affected segments from the network",
+      "team": "it",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "note-x2",
+      "text": "Switch clinical units to downtime procedures",
+      "team": "clinical",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "note-x3",
+      "text": "Notify the executive on call and legal counsel",
+      "team": "comms",
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "ad-hit": {
     "id": "ad-hit",
@@ -860,7 +899,8 @@
       "option": "isolate-1"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "isolated": {
     "id": "isolated",
@@ -895,7 +935,8 @@
       "option": "isolate-0"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "divert": {
     "id": "divert",
@@ -919,7 +960,8 @@
       "threshold": "clinical-low"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "backups": {
     "id": "backups",
@@ -949,7 +991,23 @@
      "phase": "eradicate",
      "delay_minutes": 5
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "backups-x1",
+      "text": "Check offline and tape backups before restoring",
+      "team": "it",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "backups-x2",
+      "text": "Decide which systems to restore first",
+      "team": "clinical",
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "press": {
     "id": "press",
@@ -971,7 +1029,23 @@
      "phase": "eradicate",
      "delay_minutes": 10
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "press-x1",
+      "text": "Give the reporter a holding statement within 30 minutes",
+      "team": "comms",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "press-x2",
+      "text": "Agree one spokesperson",
+      "team": null,
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "paid": {
     "id": "paid",
@@ -997,7 +1071,8 @@
       "option": "pay-0"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "refused": {
     "id": "refused",
@@ -1022,7 +1097,8 @@
       "option": "pay-1"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "restore": {
     "id": "restore",
@@ -1054,7 +1130,8 @@
      "phase": "recover",
      "delay_minutes": 10
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    }
   },
   "thresholds": [

@@ -27,8 +27,13 @@ export class LiveExercise {
   onDrop: (() => void) | undefined;
   #listeners = new Set<(env: Envelope) => void>();
 
-  constructor(readonly id: string) {
-    this.#connect();
+  /** With `connect` off it is a plain holder, filled in by its owner (the replay). */
+  constructor(
+    readonly id: string,
+    connect = true,
+  ) {
+    if (connect) this.#connect();
+    else this.connection = 'offline';
   }
 
   send(command: Command) {

@@ -51,8 +51,10 @@ pub fn project(ex: &Exercise, audience: &Audience) -> Exercise {
         injects: Default::default(),
         log: vec![],
         polls: Default::default(),
-        // How the script works is the facilitator's business.
+        // How the script works, and how the players are doing, is the
+        // facilitator's business.
         impact_rules: vec![],
+        review: Default::default(),
         ..ex.clone()
     };
     for a in ex.assets.values().filter(|a| audience.sees(&a.visibility)) {
@@ -73,6 +75,7 @@ pub fn project(ex: &Exercise, audience: &Audience) -> Exercise {
         let mut i = i.clone();
         i.notes.clear();
         i.effects.clear();
+        i.expected.clear();
         i.trigger = Trigger::Manual;
         i.audience = Visibility::All;
         out.injects.insert(i.id.clone(), i);
@@ -201,6 +204,9 @@ pub fn diff(before: &Exercise, after: &Exercise) -> Vec<Event> {
     if before.branding != after.branding {
         out.push(Event::BrandingChanged { branding: after.branding.clone() });
     }
+    if before.review != after.review {
+        out.push(Event::ReviewChanged { review: after.review.clone() });
+    }
     if before.impact_rules != after.impact_rules {
         out.push(Event::ImpactRulesReplaced { rules: after.impact_rules.clone() });
     }
@@ -285,6 +291,7 @@ mod tests {
             &mut ex,
             json!({"type": "add_inject", "inject": {
                 "title": "Ransom note", "body": "pay up", "notes": "expect escalation to legal",
+                "expected": [{"text": "Call legal"}],
                 "audience": {"mode": "teams", "teams": [it]},
                 "effects": [{"type": "set_status", "asset": target, "set": "security", "value": "compromised"}]}}),
         ));
@@ -295,14 +302,15 @@ mod tests {
         let view = project(&ex, &player);
         let inject = &view.injects[&iid];
         assert_eq!(inject.body, "pay up");
-        assert!(inject.notes.is_empty() && inject.effects.is_empty());
+        assert!(inject.notes.is_empty() && inject.effects.is_empty() && inject.expected.is_empty());
         // The automatic log line follows the inject's audience, and does not
         // name the hidden asset it changed.
         assert_eq!(view.log.len(), 1);
         assert_eq!(view.log[0].asset, None);
         let other = project(&ex, &Audience::Player { team: Some(legal) });
         assert!(other.injects.is_empty() && other.log.is_empty());
-        assert!(!serde_json::to_string(&view).unwrap().contains("escalation"));
+        let json = serde_json::to_string(&view).unwrap();
+        assert!(!json.contains("escalation") && !json.contains("Call legal"));
     }
 
     /// Applying `diff(a, b)` to `a` gives `b`, for every audience, across a

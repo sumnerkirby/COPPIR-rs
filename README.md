@@ -26,6 +26,7 @@ and OpenStreetMap lookups use the network.
 - [The room: players and observers](#the-room-players-and-observers)
 - [Taxonomy](#taxonomy)
 - [Look and banner](#look-and-banner)
+- [Review and the after-action report](#review-and-the-after-action-report)
 - [Undo](#undo)
 - [Export](#export)
 - [Keyboard shortcuts](#keyboard-shortcuts)
@@ -68,6 +69,7 @@ cargo build --release --no-default-features
 | `--strict-port` | | off | Fail instead of falling back to another port |
 | `--database` | `COPPIR_DATABASE` | `coppir.db` in the per-user data directory | Where exercises are stored |
 | `--scenarios-dir` | `COPPIR_SCENARIOS_DIR` | `scenarios` in the per-user data directory | Where version 1 saved scenarios, so they can be imported |
+| `--maps-dir` | `COPPIR_MAPS_DIR` | `maps` in the per-user data directory | Where offline map packs are kept |
 | `--headless` | | off | Serve only; no window |
 
 The per-user data directory is `~/Library/Application Support/COPPIR` on macOS,
@@ -148,6 +150,21 @@ point, measure from it, or copy its coordinates.
 **Sector zones** outline each sector's assets and colour the area by the
 sector's health. Hover a zone to list its assets. **Heat maps** weigh each asset
 by how bad its status is, so trouble spots glow.
+
+### Offline maps
+
+Venue Wi-Fi fails. Save the map before the day, while you are online:
+
+1. Pan and zoom the map to the exercise area.
+2. In **Setup → Offline map**, click **Save the area on screen for offline use**.
+3. Pick the detail, from region to streets and buildings. The form shows the
+   tile count and the rough size before anything downloads.
+4. Choose the pack under **Base map**.
+
+A city at street detail is 10 to 30 MB. Players and the projector load the map
+from your laptop, so nobody needs the internet. A pack is one `.mbtiles` file in
+the maps folder. Copy it to another machine's maps folder to take the map with
+you. If a chosen pack is deleted, the map falls back to the online one.
 
 ### Reading a marker
 
@@ -252,6 +269,8 @@ An inject is a scripted event. **+ Inject** takes:
   a given answer);
 - **When fired, also**: change an asset's status, show a hidden asset to a
   team, create a new asset, open a poll, or begin a phase;
+- **Players should**: the actions you expect in response, each for a team or
+  anyone. You judge them in the review, and the report scores them.
 - facilitator notes, which players never see.
 
 COPPIR fires scheduled and conditional injects on its own, the moment their
@@ -392,6 +411,46 @@ screen: facilitator windows, player phones and the projector.
 
 ---
 
+## Review and the after-action report
+
+**Review** in the title bar opens the after-action view. It works during the
+exercise as well as after it.
+
+**Replay.** Play the exercise back on the map or the graph, at 10 seconds to
+5 minutes of exercise time per second. Drag along the timeline to jump. Arrow
+keys step from one event to the next, and the space bar plays and pauses. The
+replay follows the exercise clock: setup sits at T+0, and pauses take no time.
+
+**Lanes.** Below the canvas, each actor has a lane: the facilitator, the script,
+each team, and the assets. A diamond is an inject, a dot is a log entry, a
+square is a vote, a ring is a poll opening or closing. Hover a mark to read it;
+click it to jump there. **What happened** lists the same marks as a feed, newest
+first.
+
+**Expected actions.** Each inject that fired lists the actions you expected,
+with **Met**, **Partly** or **Missed** and a note. Click an inject's time to
+replay from it and see what each team did next. A bar and a score sum up the
+verdicts, overall or for one team; met counts fully, partly met half. Add or
+remove expected actions here too, even after the inject fired.
+
+**Hot wash.** Write the summary, the strengths and the areas for improvement.
+Each box saves when you leave it.
+
+**Report.** The **Report** menu opens the after-action report, prints it or
+saves it as PDF, or downloads it as Markdown or HTML. It covers:
+
+- the overview: date, exercise time, teams, injects fired, decisions, log size;
+- the hot wash;
+- expected actions with verdicts, scored per team;
+- each decision with its votes and what people said;
+- the phases, planned against actual;
+- a timeline of the log, phases and decisions on the exercise clock;
+- the assets that changed status, and how they ended.
+
+The report carries the exercise's banner, logo and accent colour.
+
+---
+
 ## Undo
 
 **Undo** in the title bar, or Ctrl/⌘+Z, reverses the most recent change of any
@@ -410,6 +469,7 @@ The **Export** menu offers:
   that would start a spreadsheet formula.
 - **Briefing (HTML)**, a printable document with status counts, sector health,
   metrics, every asset and the last 30 log entries.
+- The after-action report is under **Review → Report**.
 - **Exercise file (.coppir)**, the whole exercise, to back up or move to another
   machine.
 - **Duplicate exercise**.
@@ -429,6 +489,14 @@ In the desktop window, downloads go to your Downloads folder.
 | M | Measure |
 | Esc | Cancel the current tool, or clear the selection |
 | ? | Show this list |
+
+In the review:
+
+| Shortcut | Action |
+|---|---|
+| Space | Play or pause the replay |
+| ← / → | Previous or next event |
+| Esc | Back to the console |
 
 ---
 

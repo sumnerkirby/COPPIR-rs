@@ -28,7 +28,13 @@ pub struct Config {
     pub database: Option<PathBuf>,
     pub nominatim_url: String,
     pub overpass_mirrors: Vec<String>,
+    /// Where offline map packs are kept.
+    pub maps_dir: PathBuf,
+    /// The vector tile service map packs are downloaded from.
+    pub tiles_url: String,
 }
+
+pub const TILES_URL: &str = "https://tiles.openfreemap.org";
 
 impl Config {
     pub fn new(scenarios_dir: PathBuf) -> Self {
@@ -37,6 +43,8 @@ impl Config {
             database: None,
             nominatim_url: NOMINATIM_URL.into(),
             overpass_mirrors: OVERPASS_MIRRORS.iter().map(|s| (*s).into()).collect(),
+            maps_dir: data_dir().join("maps"),
+            tiles_url: TILES_URL.into(),
         }
     }
 }

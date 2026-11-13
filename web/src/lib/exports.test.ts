@@ -32,7 +32,8 @@ const ex = (): Exercise => ({
   phase_log: [],
   polls: {},
   impact_rules: [],
-  branding: { theme: 'terminal', accent: null, org: '', logo: null, banner: null },
+  branding: { theme: 'terminal', accent: null, org: '', logo: null, banner: null, map_pack: null },
+  review: { summary: '', strengths: '', improvements: '' },
   created_at: 't',
   updated_at: 't',
 });

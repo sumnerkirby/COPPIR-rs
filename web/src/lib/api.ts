@@ -14,6 +14,9 @@ import type { Me } from './types/Me';
 import type { OpenRoom } from './types/OpenRoom';
 import type { RoomStatus } from './types/RoomStatus';
 import type { TemplateSummary } from './types/TemplateSummary';
+import type { Envelope } from './types/Envelope';
+import type { MapPack } from './types/MapPack';
+import type { NewMapPack } from './types/NewMapPack';
 
 export class ApiError extends Error {
   constructor(
@@ -66,6 +69,15 @@ export const api = {
   importFile: (file: unknown, name?: string) => request<Snapshot>('POST', `${base}/import`, { file, name }),
   duplicate: (id: string, name?: string) => request<Snapshot>('POST', `${base}/${id}/duplicate`, { name }),
   exportUrl: (id: string) => `${base}/${id}/export`,
+  events: (id: string) => request<Envelope[]>('GET', `${base}/${id}/events`),
+  reportUrl: (id: string, format: 'html' | 'md' = 'html', download = false) =>
+    `${base}/${id}/report?format=${format}${download ? '&download=true' : ''}`,
+
+  // Offline map packs
+  mapPacks: () => request<MapPack[]>('GET', '/api/v2/maps'),
+  downloadMapPack: (req: NewMapPack) => request<MapPack>('POST', '/api/v2/maps', req),
+  removeMapPack: (id: string) => request<void>('DELETE', `/api/v2/maps/${id}`),
+  mapStyleUrl: (pack: string, style: 'dark' | 'positron') => `/api/v2/maps/${pack}/style/${style}`,
   legacyScenarios: () => request<string[]>('GET', '/api/v2/legacy/scenarios'),
   importLegacy: (name: string) => request<Snapshot>('POST', '/api/v2/legacy/scenarios/import', { name }),
   defaultTaxonomy: () => request<Taxonomy>('GET', '/api/v2/taxonomy/default'),

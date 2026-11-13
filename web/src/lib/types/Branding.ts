@@ -14,4 +14,8 @@ org: string,
 /**
  * A `data:image/...;base64,` URL, kept small.
  */
-logo: string | null, banner: Banner | null, };
+logo: string | null, banner: Banner | null, 
+/**
+ * An offline map pack to use instead of the online base map.
+ */
+map_pack: string | null, };

@@ -42,6 +42,12 @@ pub fn adopt(mut ex: Exercise, name: Option<&str>, now: &str) -> Result<Exercise
     }
     let assets = &ex.assets;
     ex.links.retain(|_, l| assets.contains_key(&l.from) && assets.contains_key(&l.to) && l.from != l.to);
+    let teams: std::collections::HashSet<_> = ex.teams.iter().map(|t| t.id.clone()).collect();
+    for e in ex.injects.values_mut().flat_map(|i| i.expected.iter_mut()) {
+        if e.team.as_ref().is_some_and(|t| !teams.contains(t)) {
+            e.team = None;
+        }
+    }
     ex.id = crate::state::new_id();
     ex.created_at = now.to_owned();
     ex.updated_at = now.to_owned();
@@ -74,6 +80,7 @@ pub fn blank(name: &str, description: &str, now: &str) -> Result<Exercise, ApiEr
         polls: Default::default(),
         impact_rules: vec![],
         branding: Default::default(),
+        review: Default::default(),
         created_at: now.to_owned(),
         updated_at: now.to_owned(),
     })

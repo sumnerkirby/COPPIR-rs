@@ -1,6 +1,6 @@
 # COPPIR v2 Design
 
-Status: milestone 5 done · 2026-11-06
+Status: milestone 6 done · 2026-11-13
 
 ## Goal
 
@@ -19,7 +19,7 @@ without touching code. It stays one self-contained binary.
 | Roles | Facilitator, player and observer. Players belong to teams. Visibility is per team and enforced on the server. |
 | Customization | Taxonomies, custom asset fields, built-in templates, branding and exercise banners. |
 | Storage | Embedded SQLite with an append-only event log. |
-| Maps | Keyless vector tiles online (OpenFreeMap) plus optional offline PMTiles region packs. |
+| Maps | Keyless vector tiles online (OpenFreeMap) plus optional offline region packs, stored as MBTiles. |
 | Frontend | TypeScript + Svelte 5 + MapLibre GL, built with Vite and embedded in the binary. |
 
 ## Concepts
@@ -146,8 +146,10 @@ from CI.
 
 **Libraries**
 
-- **Map**: MapLibre GL JS with OpenFreeMap styles, the `pmtiles` protocol for
-  offline packs, and terra-draw for zones, perimeters and markup.
+- **Map**: MapLibre GL JS with OpenFreeMap styles, and terra-draw for zones,
+  perimeters and markup. Offline packs are MBTiles files the server
+  downloads and serves. PMTiles was the first plan, but SQLite is already in the
+  binary, and serving tiles by URL needs nothing new in the browser.
 - **Graph**: Svelte Flow (`@xyflow/svelte`) with dagre auto-layout. (ELK was the first plan; dagre gives the same layered layout at a fraction of the size.)
 - **Geocoding**: Photon (komoot) first, falling back to Nominatim. Overpass
   import stays.
@@ -182,7 +184,9 @@ Each milestone ships something runnable and keeps the test suite green.
 5. ✅ **Topology and customization**: the graph view, custom fields, branding
    and banners, and built-in templates (ransomware, BEC, supply-chain
    compromise, regional utility outage).
-6. **Review**: replay, the AAR report, and offline map packs.
+6. ✅ **Review**: replay with team lanes, expected actions and verdicts, the
+   hot wash, the AAR report (HTML, print-to-PDF, Markdown), and offline map
+   packs.
 7. **Packaging**: installers and signing.
 
 ## Open questions

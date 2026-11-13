@@ -749,7 +749,23 @@
      "type": "at",
      "minutes": 4
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "advisory-x1",
+      "text": "Inventory every host running the affected version",
+      "team": "soc",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "advisory-x2",
+      "text": "Freeze updates from the vendor",
+      "team": "eng",
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "beacon": {
     "id": "beacon",
@@ -792,7 +808,23 @@
      "phase": "scope",
      "delay_minutes": 2
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "beacon-x1",
+      "text": "Block the domain at DNS and the proxy",
+      "team": "soc",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "beacon-x2",
+      "text": "Preserve agent logs before changing anything",
+      "team": "soc",
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "removed": {
     "id": "removed",
@@ -831,7 +863,8 @@
       "option": "cutoff-0"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "blocked": {
     "id": "blocked",
@@ -863,7 +896,8 @@
       "option": "cutoff-1"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "db-touch": {
     "id": "db-touch",
@@ -892,7 +926,23 @@
      "phase": "contain",
      "delay_minutes": 0
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "db-touch-x1",
+      "text": "Rotate the agent's service account credentials",
+      "team": "eng",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "db-touch-x2",
+      "text": "Start a list of customers whose data may be affected",
+      "team": "cx",
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "customer": {
     "id": "customer",
@@ -923,7 +973,23 @@
       "inject": "db-touch"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "customer-x1",
+      "text": "Reply with what is known, and when the next update will come",
+      "team": "cx",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "customer-x2",
+      "text": "Agree what may be shared under NDA",
+      "team": null,
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "vendor-truth": {
     "id": "vendor-truth",
@@ -950,7 +1016,8 @@
      "phase": "contain",
      "delay_minutes": 15
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "clean-build": {
     "id": "clean-build",
@@ -976,7 +1043,8 @@
      "phase": "recover",
      "delay_minutes": 5
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    }
   },
   "thresholds": [

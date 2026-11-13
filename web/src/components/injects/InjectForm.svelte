@@ -6,6 +6,7 @@
   import type { Condition } from '../../lib/types/Condition';
   import type { Effect } from '../../lib/types/Effect';
   import type { Inject } from '../../lib/types/Inject';
+  import type { NewExpected } from '../../lib/types/NewExpected';
   import type { Severity } from '../../lib/types/Severity';
   import type { Trigger } from '../../lib/types/Trigger';
   import type { Visibility } from '../../lib/types/Visibility';
@@ -28,6 +29,7 @@
   let audience = $state<Visibility>(start?.audience ?? { mode: 'all' });
   let effects = $state<Effect[]>(start?.effects ?? []);
   let trigger = $state<Trigger>(start?.trigger ?? { type: 'manual' });
+  let expected = $state<NewExpected[]>(start?.expected.map(({ id, text, team }) => ({ id, text, team })) ?? []);
 
   const firstSet = () => sets[0];
 
@@ -82,7 +84,7 @@
 
   async function save(e: SubmitEvent) {
     e.preventDefault();
-    const inject = { title, body, severity, audience, effects, notes, trigger };
+    const inject = { title, body, severity, audience, effects, notes, trigger, expected: expected.filter((x) => x.text.trim()) };
     const r = initial
       ? await ws.send({ type: 'edit_inject', id: initial.id, inject })
       : await ws.send({ type: 'add_inject', inject });
@@ -198,6 +200,24 @@
     </div>
   </fieldset>
 
+  <fieldset>
+    <legend>Players should</legend>
+    {#each expected as x, i (i)}
+      <div class="row">
+        <input class="grow" bind:value={x.text} maxlength="500" placeholder="An action you expect, e.g. isolate the host" aria-label="Expected action" />
+        {#if ex.teams.length}
+          <select bind:value={x.team} aria-label="Team expected to act" class="team">
+            <option value={null}>Anyone</option>
+            {#each ex.teams as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
+          </select>
+        {/if}
+        <button type="button" class="ghost small" onclick={() => expected.splice(i, 1)} aria-label="Remove">✕</button>
+      </div>
+    {/each}
+    <button type="button" class="small" onclick={() => expected.push({ text: '', team: null })} disabled={expected.length >= 20}>+ Expected action</button>
+    <p class="muted hint">Judged in the review, and scored in the after-action report.</p>
+  </fieldset>
+
   <label>Facilitator notes <textarea rows="2" bind:value={notes} maxlength="4000" placeholder="Not shown to players"></textarea></label>
   <div class="row end">
     <button type="button" onclick={ondone}>Cancel</button>
@@ -216,4 +236,6 @@
   .inline input, .mins { width: 80px; }
   .wrap { flex-wrap: wrap; }
   .end { justify-content: flex-end; }
+  .team { width: auto; max-width: 130px; }
+  .hint { margin: 0; font-size: 12px; }
 </style>

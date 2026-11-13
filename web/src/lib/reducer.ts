@@ -116,6 +116,9 @@ export function apply(ex: Exercise, env: Envelope): Exercise {
     case 'branding_changed':
       ex.branding = e.branding;
       break;
+    case 'review_changed':
+      ex.review = e.review;
+      break;
     case 'batch':
       for (const event of e.events) apply(ex, { ...env, event });
       break;

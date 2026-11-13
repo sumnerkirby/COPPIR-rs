@@ -54,6 +54,9 @@ pub struct Exercise {
     /// How the exercise looks: theme, organisation, logo, banner.
     #[serde(default)]
     pub branding: Branding,
+    /// The hot wash: what the facilitator wrote down after the exercise.
+    #[serde(default)]
+    pub review: Review,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -297,6 +300,56 @@ pub struct Inject {
     /// Undoing an automatic firing disarms it, so it does not fire again at once.
     #[serde(default = "yes")]
     pub armed: bool,
+    /// What the players should do in response, and how they did.
+    #[serde(default)]
+    pub expected: Vec<Expected>,
+}
+
+/// One action the players are expected to take after an inject.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct Expected {
+    pub id: String,
+    pub text: String,
+    /// The team expected to act, or anyone.
+    #[serde(default)]
+    pub team: Option<String>,
+    /// Unset until the facilitator assesses it.
+    #[serde(default)]
+    pub verdict: Option<Verdict>,
+    #[serde(default)]
+    pub note: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum Verdict {
+    Met,
+    Partial,
+    Missed,
+}
+
+impl Verdict {
+    pub fn label(self) -> &'static str {
+        match self {
+            Verdict::Met => "Met",
+            Verdict::Partial => "Partly met",
+            Verdict::Missed => "Missed",
+        }
+    }
+}
+
+/// The hot wash, kept with the exercise and printed in the report.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct Review {
+    #[serde(default)]
+    pub summary: String,
+    #[serde(default)]
+    pub strengths: String,
+    #[serde(default)]
+    pub improvements: String,
 }
 
 fn yes() -> bool {
@@ -512,6 +565,9 @@ pub struct Branding {
     pub logo: Option<String>,
     #[serde(default)]
     pub banner: Option<Banner>,
+    /// An offline map pack to use instead of the online base map.
+    #[serde(default)]
+    pub map_pack: Option<String>,
 }
 
 /// What firing an inject does to the picture.

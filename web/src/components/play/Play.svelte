@@ -11,6 +11,7 @@
   import InjectBanner from '../console/InjectBanner.svelte';
   import BrandFrame from '../BrandFrame.svelte';
   import MapView from '../map/MapView.svelte';
+  import { mapKey } from '../../lib/maps';
   import Sitrep from '../Sitrep.svelte';
   import Icon from '../ui/Icon.svelte';
   import ExerciseClock from '../console/ExerciseClock.svelte';
@@ -94,7 +95,7 @@
           {#if ws.view === 'graph'}
             {#await import('../graph/GraphView.svelte') then { default: GraphView }}<GraphView />{/await}
           {:else}
-            {#key ws.exercise?.branding.theme === 'daylight'}
+            {#key mapKey(ws.exercise)}
             <MapView />
             {/key}
           {/if}

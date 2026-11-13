@@ -27,6 +27,10 @@ pub struct Res {
 
 impl TestApp {
     pub async fn spawn() -> Self {
+        Self::spawn_with(|_| {}).await
+    }
+
+    pub async fn spawn_with(f: impl FnOnce(&mut coppir::Config)) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let scenarios = dir.path().join("scenarios");
         let listener = coppir::bind(0, false).await.unwrap();
@@ -35,6 +39,9 @@ impl TestApp {
         // Nothing in the suite should reach the internet.
         config.nominatim_url = "http://127.0.0.1:9/".into();
         config.overpass_mirrors = vec!["http://127.0.0.1:9/".into()];
+        config.tiles_url = "http://127.0.0.1:9".into();
+        config.maps_dir = dir.path().join("maps");
+        f(&mut config);
         tokio::spawn(coppir::serve(listener, config, std::future::pending()));
         Self { base: format!("http://{addr}"), addr, http: reqwest::Client::new(), dir }
     }

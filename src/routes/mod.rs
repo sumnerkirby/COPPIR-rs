@@ -1,5 +1,6 @@
 //! HTTP and websocket routes.
 
+pub mod maps;
 pub mod osm;
 pub mod room;
 pub mod v2;
@@ -19,6 +20,7 @@ pub fn router(app: AppState) -> Router {
         .route("/api/health", get(health))
         .merge(v2::router(app.clone()))
         .merge(room::router(app.clone()))
+        .merge(maps::router(app.clone()))
         .fallback(assets::serve)
         .layer(DefaultBodyLimit::max(BODY_LIMIT))
         // The bundle and large snapshots shrink about fourfold, which matters

@@ -13,6 +13,8 @@ pub mod error;
 pub mod exercise;
 pub mod guard;
 pub mod live;
+pub mod maps;
+pub mod report;
 pub mod room;
 pub mod routes;
 pub mod state;

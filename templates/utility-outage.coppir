@@ -752,7 +752,23 @@
      "type": "at",
      "minutes": 5
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "trip-x1",
+      "text": "Dispatch crews to South substation",
+      "team": "utility",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "trip-x2",
+      "text": "Open the emergency operations centre",
+      "team": "county",
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "scada": {
     "id": "scada",
@@ -795,7 +811,23 @@
      "phase": "respond",
      "delay_minutes": 2
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "scada-x1",
+      "text": "Disconnect the field terminal and switch to manual control",
+      "team": "utility",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "scada-x2",
+      "text": "Report the intrusion to the national CERT",
+      "team": "utility",
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "wider": {
     "id": "wider",
@@ -824,7 +856,8 @@
       "option": "shed-2"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "rotating": {
     "id": "rotating",
@@ -857,7 +890,8 @@
       "option": "shed-0"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "industrial": {
     "id": "industrial",
@@ -882,7 +916,8 @@
       "option": "shed-1"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "generator": {
     "id": "generator",
@@ -909,7 +944,23 @@
       "value": "degraded"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "generator-x1",
+      "text": "Arrange fuel deliveries for hospitals on generator",
+      "team": "health",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "generator-x2",
+      "text": "Set priority restoration for critical facilities",
+      "team": "county",
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "boil": {
     "id": "boil",
@@ -935,7 +986,23 @@
       "value": "degraded"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "boil-x1",
+      "text": "Decide on a boil-water notice and issue it",
+      "team": "health",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "boil-x2",
+      "text": "Publish one consistent public message",
+      "team": null,
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "medical": {
     "id": "medical",
@@ -960,7 +1027,8 @@
       "threshold": "medical-low"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "restore": {
     "id": "restore",
@@ -992,7 +1060,8 @@
      "phase": "restore",
      "delay_minutes": 10
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    }
   },
   "thresholds": [

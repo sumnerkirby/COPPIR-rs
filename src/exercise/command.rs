@@ -10,9 +10,10 @@ use ts_rs::TS;
 use super::{
     event::Event,
     model::{
-        Annotation, Asset, Branding, Clock, Condition, Effect, Exercise, FieldKind, GeoPoint, GraphPoint, ImpactRule,
-        Inject, Link, LinkKind, LogEntry, Metric, NewAsset, Phase, PhaseEntry, Poll, PollOption, PollResponse,
-        PollState, Severity, Shape, StatusChange, Taxonomy, Team, Threshold, Trigger, Visibility,
+        Annotation, Asset, Branding, Clock, Condition, Effect, Exercise, Expected, FieldKind, GeoPoint, GraphPoint,
+        ImpactRule, Inject, Link, LinkKind, LogEntry, Metric, NewAsset, Phase, PhaseEntry, Poll, PollOption,
+        PollResponse, PollState, Review, Severity, Shape, StatusChange, Taxonomy, Team, Threshold, Trigger, Verdict,
+        Visibility,
     },
     taxonomy,
     view::Audience,
@@ -26,6 +27,8 @@ use crate::{
 pub const BULK_MAX: usize = 5000;
 /// A logo is a base64 data URL: 256 KB of image is about 350,000 characters.
 const LOGO_MAX: usize = 350_000;
+const EXPECTED_MAX: usize = 20;
+const REVIEW_MAX: usize = 20_000;
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -223,6 +226,24 @@ pub enum Command {
     SetGraphPositions {
         positions: BTreeMap<String, GraphPoint>,
     },
+    /// Replace an inject's expected actions, fired or not. Actions that keep
+    /// their id keep their assessment.
+    SetExpected {
+        inject: String,
+        expected: Vec<NewExpected>,
+    },
+    /// Judge one expected action. A null verdict clears it.
+    Assess {
+        inject: String,
+        action: String,
+        verdict: Option<Verdict>,
+        #[serde(default)]
+        #[ts(optional)]
+        note: Option<String>,
+    },
+    SetReview {
+        review: Review,
+    },
     /// Reverse the most recent change that has not been undone yet.
     Undo,
 }
@@ -287,6 +308,23 @@ pub struct NewInject {
     #[serde(default)]
     #[ts(optional, as = "Option<Trigger>")]
     pub trigger: Trigger,
+    /// Left out, an edit keeps the inject's expected actions as they are.
+    #[serde(default)]
+    #[ts(optional)]
+    pub expected: Option<Vec<NewExpected>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct NewExpected {
+    /// The id of an existing action to keep, or empty for a new one.
+    #[serde(default)]
+    #[ts(optional, as = "Option<String>")]
+    pub id: String,
+    pub text: String,
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub team: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
@@ -467,8 +505,9 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
 
         Command::AddInject { mut inject } => {
             c.nested(&["inject"], |c| check_inject(ex, &mut inject, c));
+            let expected = merge_expected(ex, &[], inject.expected.take().unwrap_or_default(), &mut c);
             c.finish()?;
-            let NewInject { title, body, severity, audience, effects, notes, trigger } = inject;
+            let NewInject { title, body, severity, audience, effects, notes, trigger, .. } = inject;
             let inject = Inject {
                 id: new_id(),
                 title,
@@ -481,6 +520,7 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
                 fired_at: None,
                 trigger,
                 armed: true,
+                expected,
             };
             vec![Event::InjectUpserted { inject }]
         }
@@ -495,10 +535,51 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
             {
                 c.fail("trigger", "an inject cannot wait for itself");
             }
+            let expected = match inject.expected.take() {
+                Some(new) => merge_expected(ex, &old.expected, new, &mut c),
+                None => old.expected.clone(),
+            };
             c.finish()?;
-            let NewInject { title, body, severity, audience, effects, notes, trigger } = inject;
-            let inject = Inject { title, body, severity, audience, effects, notes, trigger, ..old.clone() };
+            let NewInject { title, body, severity, audience, effects, notes, trigger, .. } = inject;
+            let inject = Inject { title, body, severity, audience, effects, notes, trigger, expected, ..old.clone() };
             vec![Event::InjectUpserted { inject }]
+        }
+
+        Command::SetExpected { inject, expected } => {
+            let old = ex.injects.get(&inject).ok_or(not_found("Inject not found"))?;
+            let expected = merge_expected(ex, &old.expected, expected, &mut c);
+            c.finish()?;
+            if expected == old.expected {
+                return Ok(vec![]);
+            }
+            vec![Event::InjectUpserted { inject: Inject { expected, ..old.clone() } }]
+        }
+
+        Command::Assess { inject, action, verdict, note } => {
+            let old = ex.injects.get(&inject).ok_or(not_found("Inject not found"))?;
+            let mut i = old.clone();
+            let e = i.expected.iter_mut().find(|e| e.id == action).ok_or(not_found("Expected action not found"))?;
+            e.verdict = verdict;
+            if let Some(note) = note {
+                c.max_len("note", &note, TEXT_MAX);
+                e.note = note.trim().to_owned();
+            }
+            c.finish()?;
+            if &i == old {
+                return Ok(vec![]);
+            }
+            vec![Event::InjectUpserted { inject: i }]
+        }
+
+        Command::SetReview { review } => {
+            c.max_len("summary", &review.summary, REVIEW_MAX);
+            c.max_len("strengths", &review.strengths, REVIEW_MAX);
+            c.max_len("improvements", &review.improvements, REVIEW_MAX);
+            c.finish()?;
+            if review == ex.review {
+                return Ok(vec![]);
+            }
+            vec![Event::ReviewChanged { review }]
         }
 
         Command::ArmInject { id, armed } => {
@@ -947,8 +1028,17 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
                 events.push(Event::AssetsUpserted { assets });
             }
             for i in ex.injects.values() {
-                if let Some(audience) = without(&i.audience) {
-                    events.push(Event::InjectUpserted { inject: Inject { audience, ..i.clone() } });
+                let audience = without(&i.audience);
+                let named = i.expected.iter().any(|e| e.team.as_ref() == Some(&id));
+                if audience.is_some() || named {
+                    let mut i = i.clone();
+                    if let Some(audience) = audience {
+                        i.audience = audience;
+                    }
+                    for e in i.expected.iter_mut().filter(|e| e.team.as_ref() == Some(&id)) {
+                        e.team = None;
+                    }
+                    events.push(Event::InjectUpserted { inject: i });
                 }
             }
             events
@@ -967,6 +1057,11 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
                 } else if logo.len() > LOGO_MAX {
                     c.fail("logo", "must be under 256 KB");
                 }
+            }
+            if let Some(p) = &branding.map_pack
+                && (p.is_empty() || p.len() > 64 || !p.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '-'))
+            {
+                c.fail("map_pack", "not a map pack id");
             }
             if let Some(b) = &mut branding.banner {
                 c.nested(&["banner"], |c| {
@@ -1004,6 +1099,31 @@ pub fn decide(ex: &Exercise, cmd: Command, now: &str) -> Result<Vec<Event>, ApiE
     };
     c.finish()?;
     Ok(events)
+}
+
+/// An inject's expected actions after an edit. Actions that keep their id
+/// keep their verdict and note; the rest are new.
+fn merge_expected(ex: &Exercise, old: &[Expected], new: Vec<NewExpected>, c: &mut Checks) -> Vec<Expected> {
+    if new.len() > EXPECTED_MAX {
+        c.fail("expected", format!("at most {EXPECTED_MAX} per inject"));
+    }
+    new.into_iter()
+        .enumerate()
+        .map(|(n, mut e)| {
+            c.nested(&["expected", &n.to_string()], |c| {
+                c.label("text", &mut e.text, 500);
+                if let Some(t) = &e.team
+                    && ex.teams.iter().all(|x| &x.id != t)
+                {
+                    c.fail("team", "unknown team");
+                }
+            });
+            match old.iter().find(|o| !e.id.is_empty() && o.id == e.id) {
+                Some(o) => Expected { text: e.text, team: e.team, ..o.clone() },
+                None => Expected { id: new_id(), text: e.text, team: e.team, verdict: None, note: String::new() },
+            }
+        })
+        .collect()
 }
 
 /// A facilitator-only log line listing knock-on changes, if there were any.

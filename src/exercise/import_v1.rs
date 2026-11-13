@@ -151,6 +151,7 @@ pub fn import(json: &serde_json::Value, name: &str, now: &str) -> Result<Exercis
                 fired_at: i.triggered_at.clone(),
                 trigger: Default::default(),
                 armed: true,
+                expected: vec![],
             },
         );
     }

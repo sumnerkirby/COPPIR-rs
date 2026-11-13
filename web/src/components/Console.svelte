@@ -2,6 +2,7 @@
   import { onDestroy, untrack } from 'svelte';
   import { provideWorkspace, Workspace } from '../lib/workspace.svelte';
   import { ui } from '../lib/ui.svelte';
+  import { mapKey } from '../lib/maps';
   import TopBar from './console/TopBar.svelte';
   import Sitrep from './Sitrep.svelte';
   import MapView from './map/MapView.svelte';
@@ -27,7 +28,7 @@
   function onkeydown(e: KeyboardEvent) {
     const typing =
       e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement;
-    if (ui.dialog || ws.showTaxonomy || ws.showRoom || ws.showTimeline) return;
+    if (ui.dialog || ws.showTaxonomy || ws.showRoom || ws.showTimeline || ws.reviewing) return;
     if (mod(e) && e.key.toLowerCase() === 'z' && !e.shiftKey && !typing) {
       e.preventDefault();
       ws.undo();
@@ -58,6 +59,9 @@
 <svelte:window {onkeydown} />
 
 <BrandFrame branding={ws.exercise?.branding}>
+{#if ws.reviewing && ws.exercise}
+  {#await import('./review/Review.svelte') then { default: Review }}<Review />{/await}
+{:else}
 <div class="console">
   <TopBar />
   {#if ws.exercise}
@@ -69,7 +73,7 @@
         {#if ws.view === 'graph'}
           {#await import('./graph/GraphView.svelte') then { default: GraphView }}<GraphView />{/await}
         {:else}
-          {#key ws.exercise?.branding.theme === 'daylight'}
+          {#key mapKey(ws.exercise)}
           <MapView />
           <MapToolbar />
           {/key}
@@ -83,6 +87,7 @@
     {#if ws.exercise}<Sidebar />{/if}
   </div>
 </div>
+{/if}
 </BrandFrame>
 
 {#if ws.showTaxonomy && ws.exercise}

@@ -47,6 +47,7 @@
   <span class="conn {ws.live.connection}" role="status" aria-label="Connection {ws.live.connection}" title="Connection: {ws.live.connection}"></span>
   {#if ex}<ExerciseClock />{/if}
   <div class="spacer"></div>
+  <button class="ghost icon" onclick={() => (ws.reviewing = true)} title="Replay the exercise, judge the expected actions, write the report" aria-label="Review"><Icon name="clipboard-check" /> Review</button>
   <button class="ghost icon" onclick={() => (ws.showRoom = true)} title="Let people join from their own devices" aria-label="Room"><Icon name="users" /> Room</button>
   <button class="ghost icon" onclick={() => ws.undo()} title="Undo (Ctrl/⌘+Z)" aria-label="Undo"><Icon name="undo-2" /> Undo</button>
   <button class="ghost icon" onclick={() => (ws.showTaxonomy = true)} title="Statuses, asset types and sectors" aria-label="Taxonomy"><Icon name="tags" /> Taxonomy</button>

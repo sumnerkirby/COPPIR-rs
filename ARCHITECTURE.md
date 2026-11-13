@@ -54,6 +54,9 @@ that frontend. Exercises live in one SQLite file as append-only event logs.
 | `exercise/engine.rs` | The script engine: which injects are due and which polls have run out of time |
 | `exercise/impact.rs` | Spreads a status change along links by the exercise's impact rules |
 | `templates.rs` | The built-in exercises, `templates/*.coppir` compiled into the binary |
+| `report.rs` | The after-action report, rendered from one outline to Markdown and to HTML |
+| `maps.rs` | Offline map packs: downloading a region into an MBTiles file, and reading tiles, styles, sprites and glyphs back |
+| `routes/maps.rs` | `/api/v2/maps`: list, download and delete packs (facilitator); styles, tiles, sprites and fonts (anyone in the room) |
 | `exercise/view.rs` | What each audience may see: `project` an exercise, `diff` two projections into events |
 | `live.rs` | One room per open exercise: the in-memory state, the undo stack, the broadcast channel and one view per connected audience |
 | `room.rs` | Join codes, participant sessions, rate limiting, and this machine's LAN addresses |
@@ -209,6 +212,7 @@ rest are the facilitator's. Any other path serves the frontend, with
 | GET | `/api/v2/exercises/{id}/events?after=` | The event log |
 | GET | `/api/v2/exercises/{id}/ws?after=` | Live stream |
 | GET | `/api/v2/exercises/{id}/export` | Download a `.coppir` file |
+| GET | `/api/v2/exercises/{id}/report?format=html\|md&download=` | The after-action report |
 | POST | `/api/v2/exercises/{id}/duplicate` | Copy, with a fresh history |
 | POST | `/api/v2/exercises/import` | Create from a `.coppir` file |
 | POST | `/api/v2/exercises/import/v1` | Create from a version 1 scenario's JSON |
@@ -226,6 +230,10 @@ rest are the facilitator's. Any other path serves the frontend, with
 | POST | `/api/v2/geocode` | Place search |
 | GET | `/api/v2/osm/categories` | Infrastructure categories |
 | POST | `/api/v2/osm/search` | Infrastructure near a point |
+| GET, POST | `/api/v2/maps` | List offline map packs / start downloading one |
+| DELETE | `/api/v2/maps/{id}` | Stop a download or delete a pack |
+| GET | `/api/v2/maps/{id}/style/{name}` | A pack's style, its URLs pointed at this server |
+| GET | `/api/v2/maps/{id}/tiles/{z}/{x}/{y}`, `/sprite/{file}`, `/fonts/{stack}/{range}` | What the style asks for |
 
 **Live stream.** On connect the server sends a `snapshot`. With
 `?after=<seq>`, it sends just the events since then (up to 1,000). After that it
@@ -246,6 +254,39 @@ listed:
 ```json
 {"detail": [{"loc": ["body", "assets", "1", "name"], "msg": "must not be blank", "type": "value_error"}]}
 ```
+
+## The after-action report (`report.rs`)
+
+The report needs more than the exercise's final state. The exercise clock at a
+past moment comes from replaying `ClockChanged` events, because the clock can be
+paused, set and reset. The count of undone changes and whether the script or
+the facilitator wrote a log line also come from the log. `outline()` builds a
+list of blocks (headings, facts, tables, text), and two small renderers turn it
+into Markdown or HTML, so the two formats cannot disagree. The HTML escapes
+every string and is served with a `default-src 'none'` content security policy:
+player log text ends up in it.
+
+## Offline map packs (`maps.rs`)
+
+A pack is one MBTiles file: SQLite with the standard `metadata` and `tiles`
+tables, plus a `files` table for the dark and positron styles, the sprite and
+the glyph ranges. SQLite is already in the binary, so packs need no new tile
+library, and one file is the whole map.
+
+A download runs as a background task. It fetches both styles from the tile
+service, then the TileJSON, the sprite and the glyphs for every font the
+styles use plus the app's label font. Then it fetches the tiles, six at a
+time, with retries. Every URL must share the tile service's origin. Tiles are
+stored gzipped and served with `Content-Encoding: gzip`. The file is written as
+`<id>.part` and renamed only when complete. A request is capped at 40,000
+tiles.
+
+At serve time the style is rewritten: one vector source pointing at
+`/api/v2/maps/<id>/tiles`, with the pack's bounds and maximum zoom, plus sprite
+and glyph URLs on this server. The URLs use the request's `Host`, which the
+guard has already checked, so a phone on the LAN gets the LAN address. Layers
+from other sources (the online style's hillshade) are dropped. A missing glyph
+range returns an empty body, which MapLibre treats as having no glyphs.
 
 ## Local-only guard (`guard.rs`)
 
@@ -274,6 +315,9 @@ Vite builds the Svelte 5 and TypeScript frontend into `web/dist/`, and
 | `lib/markers.ts`, `lib/icons.ts` | Draws each marker (fill, ring style, glyph badge, Lucide icon) onto a canvas for MapLibre |
 | `lib/sitrep.ts` | Counts, sector health and breached thresholds, all from the taxonomy |
 | `lib/exports.ts` | CSV log and HTML briefing |
+| `lib/replay.ts` | Rebuilds the exercise at any moment of its run from the event log, and places the review's lane marks |
+| `lib/maps.ts` | Tile counts and size estimates for offline packs |
+| `components/review/` | The review: replay transport, lanes, the event feed, assessment and the hot wash |
 | `lib/geo.ts` | Distance, convex hull, circles |
 | `components/map/` | MapView (sources and layers), toolbar, terra-draw drawing, context menu, legend |
 | `components/assets/`, `injects/`, `log/`, `setup/` | The sidebar tabs |
@@ -294,6 +338,15 @@ only when someone switches to it. Positions live on each asset (`graph`);
 Unplaced assets are positioned by dagre (`lib/graph.ts`) until someone moves
 them. dagre was chosen over ELK for size: it does the same layered layout in a
 fraction of the code.
+
+**Replay.** `buildReplay` walks the event log once. It gives each event an
+exercise-clock time that never decreases, saves the state every 200 events and
+records the lane marks. Each mark is read against the state just before its
+change, which shows a new vote or a status that really changed. Seeking
+forward applies events to the shown state in place. Seeking backward starts from
+the nearest saved state. The review renders the replayed exercise through a
+second `Workspace` built with `connected = false`. The map, graph and SITREP
+draw it unchanged, and its `send` does nothing.
 
 **Themes.** `lib/theme.ts` holds four token sets. `BrandFrame` writes the
 exercise's tokens onto `:root` and draws the banner. Every component colours
@@ -326,7 +379,9 @@ browser. Devtools are on in debug builds.
 | `tests/script.rs` | A scheduled inject firing by itself, chains within a request, undo disarming, impact through the API, players answering polls and the branch firing, what participants see of the script |
 | `tests/room.rs` | Joining, roles, per-team snapshots and live patches, player log stamping, moving and kicking, and access over the real LAN address |
 | `tests/security.rs` | The origin and host guard, content types, SPA fallback, upstream failures |
-| `web/src/**/*.test.ts` | The reducer (every event type), geometry, marker ids and icon names, exports |
+| `tests/review.rs` | Expected actions and verdicts, the hot wash and its undo, the report in both formats, escaping |
+| `tests/maps.rs` | A pack downloaded from a stand-in tile service, the rewritten style, tiles, sprites and fonts, deletion, bad requests and a failed download |
+| `web/src/**/*.test.ts` | The reducer (every event type), replay timing, lanes and seeking, tile counts, geometry, marker ids and icon names, exports |
 
 Outbound URLs in the Rust tests point at a closed local port, so nothing
 reaches the internet.

@@ -37,6 +37,8 @@ export interface MapHandle {
   flyTo(p: GeoPoint, zoom?: number): void;
   fit(points: GeoPoint[]): void;
   center(): GeoPoint;
+  /** What is on screen: west, south, east, north. */
+  bounds(): [number, number, number, number];
 }
 
 const KEY = Symbol('workspace');
@@ -70,6 +72,8 @@ export class Workspace {
   showHelp = $state(false);
   showRoom = $state(false);
   showTimeline = $state(false);
+  /** The after-action review: replay, assessment and report. */
+  reviewing = $state(false);
   /** Geographic map or topology graph. */
   view = $state<'map' | 'graph'>(load('view', 'map'));
   /** What the Script tab is editing: an inject (by id, or a new one) or a new poll. */
@@ -82,8 +86,10 @@ export class Workspace {
   constructor(
     id: string,
     readonly readonly = false,
+    /** Off for the replay, whose exercise is a moment in the past. */
+    readonly connected = true,
   ) {
-    this.live = new LiveExercise(id);
+    this.live = new LiveExercise(id, connected);
     $effect(() => save('layers', this.layers));
     $effect(() => save('tab', this.tab));
     $effect(() => save('drawColor', this.drawColor));
@@ -108,6 +114,7 @@ export class Workspace {
 
   /** Send a command; a refusal becomes a toast rather than an exception. */
   async send(cmd: Command): Promise<Applied | null> {
+    if (!this.connected) return null;
     try {
       return await this.live.send(cmd);
     } catch (e) {

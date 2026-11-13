@@ -23,7 +23,8 @@ const blank = (): Exercise => ({
   phase_log: [],
   polls: {},
   impact_rules: [],
-  branding: { theme: 'terminal', accent: null, org: '', logo: null, banner: null },
+  branding: { theme: 'terminal', accent: null, org: '', logo: null, banner: null, map_pack: null },
+  review: { summary: '', strengths: '', improvements: '' },
   created_at: 't0',
   updated_at: 't0',
 });
@@ -59,7 +60,7 @@ describe('apply', () => {
 
     const inject = {
       id: 'i', title: 't', body: '', severity: 'info' as const, audience: { mode: 'all' as const },
-      effects: [], notes: '', created_at: 't', fired_at: null, trigger: { type: 'manual' as const }, armed: true,
+      effects: [], notes: '', created_at: 't', fired_at: null, trigger: { type: 'manual' as const }, armed: true, expected: [],
     };
     apply(ex, env({ type: 'inject_upserted', inject }));
     const entry = { id: 'e', at: 't', text: 'fired', asset: null, asset_name: null, notes: '', auto: true, author: '', visibility: { mode: 'all' as const } };
@@ -81,6 +82,8 @@ describe('apply', () => {
     apply(ex, env({ type: 'team_upserted', team: { id: 'it', name: 'IT Ops', color: '#3399ff' } }));
     expect(ex.teams.map((t) => t.name)).toEqual(['IT Ops']);
     apply(ex, env({ type: 'batch', events: [{ type: 'team_removed', id: 'it' }, { type: 'renamed', name: 'New', description: 'd' }] }));
+    apply(ex, env({ type: 'review_changed', review: { summary: 'Went well', strengths: '', improvements: '' } }));
+    expect(ex.review.summary).toBe('Went well');
     expect(ex.teams).toEqual([]);
     apply(ex, env({ type: 'clock_changed', clock: { elapsed_ms: 5000, running_since: null } }));
     apply(ex, env({ type: 'phases_replaced', phases: [{ id: 'p', name: 'Detect', color: '#3399ff', target_minutes: 10 }] }));

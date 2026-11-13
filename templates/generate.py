@@ -170,7 +170,14 @@ class Builder:
             "fired_at": None,
             "trigger": trigger or {"type": "manual"},
             "armed": True,
+            "expected": [],
         }
+
+    def expect(self, inject, *actions):
+        """What the players should do after an inject: (team or None, text) pairs."""
+        lst = self.ex["injects"][inject]["expected"]
+        for team, text in actions:
+            lst.append({"id": f"{inject}-x{len(lst) + 1}", "text": text, "team": team, "verdict": None, "note": ""})
 
     def threshold(self, id, name, sector, below, severity="critical"):
         self.ex["thresholds"].append({"id": id, "name": name, "sector": sector, "below_pct": below, "severity": severity})
@@ -312,6 +319,15 @@ def ransomware():
     b.inject("restore", "EHR back from tape", "EHR is restored from tape. A week of records must be re-entered.",
              severity="info", trigger=into("recover", 10),
              effects=[set_status("ehr", "security", "monitored"), set_status("ehr", "operational", "degraded")])
+    b.expect("beacon", ("it", "Open an incident and pull VPN logs for the address"),
+             ("it", "Disable the VPN account involved"))
+    b.expect("note", ("it", "Isolate affected segments from the network"),
+             ("clinical", "Switch clinical units to downtime procedures"),
+             ("comms", "Notify the executive on call and legal counsel"))
+    b.expect("backups", ("it", "Check offline and tape backups before restoring"),
+             ("clinical", "Decide which systems to restore first"))
+    b.expect("press", ("comms", "Give the reporter a holding statement within 30 minutes"),
+             (None, "Agree one spokesperson"))
     b.write("ransomware")
 
 
@@ -390,6 +406,13 @@ def bec():
              "unpaid and threatens to stop deliveries.", trigger=into("recover"), audience=teams("finance", "legal"))
     b.inject("regulator", "Notification deadline", "Counsel asks whether personal data in the mailbox triggers "
              "breach notification.", severity="info", trigger=into("recover", 10), audience=teams("legal"))
+    b.expect("request", ("finance", "Verify the request by calling the CEO on a known number"),
+             ("finance", "Hold the payment until verified"))
+    b.expect("rule", ("security", "Remove the mailbox rule and reset the clerk's credentials"),
+             ("security", "Search other mailboxes for the same rule"))
+    b.expect("recall", ("finance", "Ask the bank to recall the wire within the hour"),
+             ("legal", "Report the fraud to law enforcement"))
+    b.expect("regulator", ("legal", "Decide whether the breach is notifiable, and record why"))
     b.write("bec")
 
 
@@ -471,6 +494,14 @@ def supply_chain():
              "for months.", severity="info", trigger=into("contain", 15), effects=[reveal("build")])
     b.inject("clean-build", "Clean version published", "The vendor publishes 2026.4.3, rebuilt from a clean pipeline.",
              severity="info", trigger=into("recover", 5), effects=[set_status("updates", "security", "monitored")])
+    b.expect("advisory", ("soc", "Inventory every host running the affected version"),
+             ("eng", "Freeze updates from the vendor"))
+    b.expect("beacon", ("soc", "Block the domain at DNS and the proxy"),
+             ("soc", "Preserve agent logs before changing anything"))
+    b.expect("db-touch", ("eng", "Rotate the agent's service account credentials"),
+             ("cx", "Start a list of customers whose data may be affected"))
+    b.expect("customer", ("cx", "Reply with what is known, and when the next update will come"),
+             (None, "Agree what may be shared under NDA"))
     b.write("supply-chain")
 
 
@@ -560,6 +591,14 @@ def utility_outage():
     b.inject("restore", "Crews restore South", "Crews isolate the terminal and close South's breakers by hand.",
              severity="info", trigger=into("restore", 10),
              effects=[set_status("south", "operational", "degraded"), set_status("south", "security", "contained")])
+    b.expect("trip", ("utility", "Dispatch crews to South substation"),
+             ("county", "Open the emergency operations centre"))
+    b.expect("scada", ("utility", "Disconnect the field terminal and switch to manual control"),
+             ("utility", "Report the intrusion to the national CERT"))
+    b.expect("generator", ("health", "Arrange fuel deliveries for hospitals on generator"),
+             ("county", "Set priority restoration for critical facilities"))
+    b.expect("boil", ("health", "Decide on a boil-water notice and issue it"),
+             (None, "Publish one consistent public message"))
     b.write("utility-outage")
 
 

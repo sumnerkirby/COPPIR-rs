@@ -73,7 +73,7 @@ mod tests {
     use super::*;
     use crate::exercise::{
         Command, adopt,
-        command::{NewInject, decide},
+        command::{NewExpected, NewInject, decide},
     };
 
     /// Every template adopts cleanly, and every inject in it would be accepted
@@ -95,6 +95,12 @@ mod tests {
                     effects: i.effects.clone(),
                     notes: i.notes.clone(),
                     trigger: i.trigger.clone(),
+                    expected: Some(
+                        i.expected
+                            .iter()
+                            .map(|e| NewExpected { id: e.id.clone(), text: e.text.clone(), team: e.team.clone() })
+                            .collect(),
+                    ),
                 };
                 decide(&ex, Command::EditInject { id: i.id.clone(), inject }, "2026-01-01T00:00:00+00:00")
                     .unwrap_or_else(|e| panic!("{id}: inject {:?} is invalid: {e:?}", i.title));

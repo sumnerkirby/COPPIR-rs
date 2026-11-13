@@ -478,6 +478,7 @@ dependencies = [
  "chrono",
  "clap",
  "directories",
+ "flate2",
  "futures-util",
  "indexmap",
  "local-ip-address",

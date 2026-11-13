@@ -27,6 +27,11 @@ struct Cli {
     #[arg(long, env = "COPPIR_DATABASE")]
     database: Option<PathBuf>,
 
+    /// Where offline map packs are kept. Defaults to `maps` in the per-user
+    /// data directory.
+    #[arg(long, env = "COPPIR_MAPS_DIR")]
+    maps_dir: Option<PathBuf>,
+
     /// Serve only; open the printed URL in a browser yourself.
     #[arg(long)]
     headless: bool,
@@ -41,6 +46,9 @@ fn main() -> anyhow_lite::Result {
     let scenarios_dir = cli.scenarios_dir.unwrap_or_else(config::default_scenarios_dir);
     let mut config = Config::new(scenarios_dir);
     config.database = Some(cli.database.unwrap_or_else(|| config::data_dir().join("coppir.db")));
+    if let Some(dir) = cli.maps_dir {
+        config.maps_dir = dir;
+    }
 
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
     let listener = runtime.block_on(coppir::bind(cli.port, !cli.strict_port))?;

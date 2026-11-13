@@ -689,7 +689,23 @@
      "type": "at",
      "minutes": 2
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "request-x1",
+      "text": "Verify the request by calling the CEO on a known number",
+      "team": "finance",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "request-x2",
+      "text": "Hold the payment until verified",
+      "team": "finance",
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "sent": {
     "id": "sent",
@@ -724,7 +740,8 @@
       "option": "wire-0"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "held": {
     "id": "held",
@@ -757,7 +774,8 @@
       "option": "wire-1"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "rule": {
     "id": "rule",
@@ -796,7 +814,23 @@
      "phase": "respond",
      "delay_minutes": 3
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "rule-x1",
+      "text": "Remove the mailbox rule and reset the clerk's credentials",
+      "team": "security",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "rule-x2",
+      "text": "Search other mailboxes for the same rule",
+      "team": "security",
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "signin": {
     "id": "signin",
@@ -827,7 +861,8 @@
       "inject": "rule"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "recall": {
     "id": "recall",
@@ -852,7 +887,23 @@
       "inject": "sent"
      }
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "recall-x1",
+      "text": "Ask the bank to recall the wire within the hour",
+      "team": "finance",
+      "verdict": null,
+      "note": ""
+     },
+     {
+      "id": "recall-x2",
+      "text": "Report the fraud to law enforcement",
+      "team": "legal",
+      "verdict": null,
+      "note": ""
+     }
+    ]
    },
    "vendor-call": {
     "id": "vendor-call",
@@ -875,7 +926,8 @@
      "phase": "recover",
      "delay_minutes": 0
     },
-    "armed": true
+    "armed": true,
+    "expected": []
    },
    "regulator": {
     "id": "regulator",
@@ -897,7 +949,16 @@
      "phase": "recover",
      "delay_minutes": 10
     },
-    "armed": true
+    "armed": true,
+    "expected": [
+     {
+      "id": "regulator-x1",
+      "text": "Decide whether the breach is notifiable, and record why",
+      "team": "legal",
+      "verdict": null,
+      "note": ""
+     }
+    ]
    }
   },
   "thresholds": [

@@ -6,6 +6,7 @@
   import MetricWheel from '../MetricWheel.svelte';
   import ImpactRules from './ImpactRules.svelte';
   import BrandingEditor from './BrandingEditor.svelte';
+  import OfflineMaps from './OfflineMaps.svelte';
 
   const ws = useWorkspace();
   const ex = $derived(ws.exercise!);
@@ -127,6 +128,7 @@
 
 <ImpactRules />
 <BrandingEditor />
+<OfflineMaps />
 
 <style>
   section { display: grid; gap: 8px; }

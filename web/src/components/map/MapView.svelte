@@ -21,6 +21,8 @@
   import { drawMarker, markerId, parseMarkerId } from '../../lib/markers';
   import { scoreColor, sectorHealth, statusValue } from '../../lib/sitrep';
   import { useWorkspace } from '../../lib/workspace.svelte';
+  import { api } from '../../lib/api';
+  import { ui } from '../../lib/ui.svelte';
   import type { GeoPoint } from '../../lib/types/GeoPoint';
   import Drawing from './Drawing.svelte';
   import ContextMenu from './ContextMenu.svelte';
@@ -32,12 +34,14 @@
   const ws = useWorkspace();
   const ex = $derived(ws.exercise!);
 
-  // Keyless, free vector tiles. Offline region packs arrive in milestone 6.
+  // Keyless, free vector tiles, or an offline pack served by this laptop.
   const DARK = 'https://tiles.openfreemap.org/styles/dark';
   const LIGHT = 'https://tiles.openfreemap.org/styles/positron';
-  // Chosen when the map is created; a theme change remounts the map.
+  // Chosen when the map is created; a change of theme or pack remounts the map.
   const light = untrack(() => ws.exercise?.branding.theme === 'daylight');
-  const STYLE = light ? LIGHT : DARK;
+  const pack = untrack(() => ws.exercise?.branding.map_pack);
+  const ONLINE = light ? LIGHT : DARK;
+  const STYLE = pack ? api.mapStyleUrl(pack, light ? 'positron' : 'dark') : ONLINE;
   const TEXT = light ? '#14202b' : '#d6f5dc';
   const HALO = light ? '#ffffff' : '#050a06';
   const FONT = ['Noto Sans Regular'];
@@ -180,7 +184,20 @@
         const c = m.getCenter();
         return { lat: c.lat, lon: c.lng };
       },
+      bounds: () => {
+        const b = m.getBounds();
+        return [Math.max(-180, b.getWest()), Math.max(-85, b.getSouth()), Math.min(180, b.getEast()), Math.min(85, b.getNorth())];
+      },
     };
+
+    // A pack that has gone missing falls back to the online map.
+    if (pack) {
+      m.once('error', () => {
+        if (m.isStyleLoaded()) return;
+        ui.toast('The offline map pack is missing; showing the online map.', 'warning', 6000);
+        m.setStyle(ONLINE);
+      });
+    }
 
     // Markers are drawn on demand: the image id carries everything needed.
     m.setMissingStyleImageResolver((id) => {
