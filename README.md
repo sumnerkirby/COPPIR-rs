@@ -44,7 +44,7 @@ Download the installer for your system from the
 | System | Installer |
 |---|---|
 | macOS 11 or later | `COPPIR_<version>_universal.dmg`: open it and drag COPPIR to Applications |
-| Windows 10 or 11 | `COPPIR_<version>_x64-setup.exe`: installs for you alone, no administrator needed |
+| Windows 10 or 11 | `coppir_<version>_x64-setup.exe`: installs for you alone, no administrator needed |
 | Ubuntu, Debian | `coppir_<version>_amd64.deb`: `sudo apt install ./coppir_*_amd64.deb` |
 | Other Linux | `coppir_<version>_x86_64.AppImage`: `chmod +x` it and run it |
 

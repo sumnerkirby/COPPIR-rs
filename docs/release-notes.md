@@ -3,7 +3,7 @@
 | System | File |
 |---|---|
 | macOS 11 or later (Apple Silicon and Intel) | `COPPIR_<version>_universal.dmg` |
-| Windows 10 or 11 | `COPPIR_<version>_x64-setup.exe` |
+| Windows 10 or 11 | `coppir_<version>_x64-setup.exe` |
 | Ubuntu, Debian | `coppir_<version>_amd64.deb` |
 | Any other Linux | `coppir_<version>_x86_64.AppImage` |
 
