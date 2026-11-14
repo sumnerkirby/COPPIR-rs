@@ -369,6 +369,33 @@ The shell saves blob downloads (the exports) to the user's Downloads folder
 under a name that does not overwrite anything. Off-site links open in the default
 browser. Devtools are on in debug builds.
 
+On macOS the shell installs a menu bar with `muda`. A webview gets Cut, Copy,
+Paste and Select All shortcuts only from an Edit menu, and Cmd+Q only from an
+app menu. Undo and Redo are left out, because a menu item would take Cmd+Z from
+the page, where it undoes the last change to the exercise.
+
+A release build on Windows uses the GUI subsystem, so it opens no console window.
+At startup it attaches to the parent terminal, if there is one, so
+`--headless`, `--help` and the logs still print there. `build.rs` compiles the
+icon and version details into the `.exe` with `winresource`.
+
+## Packaging
+
+`cargo-packager` builds the installers from `[package.metadata.packager]` in
+`Cargo.toml`: a universal `.dmg`, an NSIS setup `.exe`, a `.deb` and an
+`.AppImage`. The release workflow (`.github/workflows/release.yml`) runs on a
+version tag:
+
+1. It builds the frontend once.
+2. On each platform, it builds the binary and packages it. On macOS it builds
+   both architectures and joins them with `lipo`.
+3. It drafts a release with the installers and their SHA-256 checksums.
+
+The macOS app is signed ad hoc so that its bundle is sealed. An unsealed
+bundle that was downloaded is reported as damaged. The icons in
+`packaging/icons/` are rendered from SVG by `generate.py` and committed.
+`docs/RELEASING.md` has the steps.
+
 ## Tests
 
 | Suite | Covers |

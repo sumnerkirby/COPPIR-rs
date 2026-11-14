@@ -18,6 +18,8 @@ const TITLE: &str = "COPPIR — Common Operational Picture Program for Incident 
 
 pub fn run(url: &str) -> Result<(), Box<dyn std::error::Error>> {
     let event_loop = EventLoop::new();
+    #[cfg(target_os = "macos")]
+    let menu = mac_menu()?;
     let window = WindowBuilder::new()
         .with_title(TITLE)
         .with_inner_size(LogicalSize::new(1440.0, 900.0))
@@ -66,12 +68,49 @@ pub fn run(url: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
-        // Keep the webview alive for as long as the loop runs.
+        // Keep the webview (and on macOS the menu) alive for as long as the loop runs.
         let _ = &webview;
+        #[cfg(target_os = "macos")]
+        let _ = &menu;
         if let Event::WindowEvent { event: WindowEvent::CloseRequested, .. } = event {
             *control_flow = ControlFlow::Exit;
         }
     });
+}
+
+/// The macOS menu bar. Without an Edit menu, Cmd+C, Cmd+V and friends do
+/// nothing in a webview, and without the app menu Cmd+Q does not quit. Undo
+/// and Redo are left out on purpose: as menu items they would take Cmd+Z away
+/// from the page, where it undoes the last change to the exercise.
+#[cfg(target_os = "macos")]
+fn mac_menu() -> Result<muda::Menu, muda::Error> {
+    use muda::{Menu, PredefinedMenuItem as Item, Submenu};
+    let app = Submenu::with_items(
+        "COPPIR",
+        true,
+        &[
+            &Item::about(None, None),
+            &Item::separator(),
+            &Item::hide(None),
+            &Item::hide_others(None),
+            &Item::show_all(None),
+            &Item::separator(),
+            &Item::quit(None),
+        ],
+    )?;
+    let edit = Submenu::with_items(
+        "Edit",
+        true,
+        &[&Item::cut(None), &Item::copy(None), &Item::paste(None), &Item::select_all(None)],
+    )?;
+    let window = Submenu::with_items(
+        "Window",
+        true,
+        &[&Item::minimize(None), &Item::fullscreen(None), &Item::close_window(None)],
+    )?;
+    let menu = Menu::with_items(&[&app, &edit, &window])?;
+    menu.init_for_nsapp();
+    Ok(menu)
 }
 
 fn downloads_dir() -> Option<PathBuf> {

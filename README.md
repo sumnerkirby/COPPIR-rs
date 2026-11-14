@@ -36,6 +36,32 @@ and OpenStreetMap lookups use the network.
 
 ## Getting started
 
+### Installing
+
+Download the installer for your system from the
+[releases page](https://github.com/sumnerkirby/COPPIR-rs/releases):
+
+| System | Installer |
+|---|---|
+| macOS 11 or later | `COPPIR_<version>_universal.dmg`: open it and drag COPPIR to Applications |
+| Windows 10 or 11 | `COPPIR_<version>_x64-setup.exe`: installs for you alone, no administrator needed |
+| Ubuntu, Debian | `coppir_<version>_amd64.deb`: `sudo apt install ./coppir_*_amd64.deb` |
+| Other Linux | `coppir_<version>_x86_64.AppImage`: `chmod +x` it and run it |
+
+Only the facilitator installs COPPIR. Players and observers join from a browser.
+
+The installers are not signed with a paid certificate, so the first launch
+needs one extra click:
+
+- **macOS** says it cannot check the app. Open **System Settings → Privacy &
+  Security** and click **Open Anyway**.
+- **Windows** SmartScreen says it protected your PC. Click **More info**, then
+  **Run anyway**.
+
+Exercises and map packs live in the per-user data directory (see
+[Options](#options)), so reinstalling or upgrading keeps them. Uninstalling
+does too.
+
 ### Building from source
 
 You need Rust 1.85 or newer and Node 22 or newer. On Linux, also install the
@@ -71,6 +97,9 @@ cargo build --release --no-default-features
 | `--scenarios-dir` | `COPPIR_SCENARIOS_DIR` | `scenarios` in the per-user data directory | Where version 1 saved scenarios, so they can be imported |
 | `--maps-dir` | `COPPIR_MAPS_DIR` | `maps` in the per-user data directory | Where offline map packs are kept |
 | `--headless` | | off | Serve only; no window |
+
+On Windows, run the app from a terminal to see `--headless` output and logs
+there. Started from the Start menu it opens no console window.
 
 The per-user data directory is `~/Library/Application Support/COPPIR` on macOS,
 `%APPDATA%\COPPIR\data` on Windows and `~/.local/share/coppir` on Linux.
@@ -521,6 +550,13 @@ Rust types. Commit them with the Rust change. CI fails if they are stale.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together, and
 [docs/DESIGN.md](docs/DESIGN.md) for where the project is going.
+
+---
+
+### Releases
+
+`docs/RELEASING.md` covers versioning, tagging, the release workflow and how
+to build an installer locally.
 
 ---
 

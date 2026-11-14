@@ -1,6 +1,6 @@
 # COPPIR v2 Design
 
-Status: milestone 6 done · 2026-11-13
+Status: milestone 7 done · 2026-11-14
 
 ## Goal
 
@@ -187,7 +187,10 @@ Each milestone ships something runnable and keeps the test suite green.
 6. ✅ **Review**: replay with team lanes, expected actions and verdicts, the
    hot wash, the AAR report (HTML, print-to-PDF, Markdown), and offline map
    packs.
-7. **Packaging**: installers and signing.
+7. ✅ **Packaging**: installers for macOS (universal `.dmg`), Windows (NSIS)
+   and Linux (`.deb`, AppImage), built and drafted as a GitHub release from a
+   version tag. Signing with paid certificates is deferred. The macOS app is
+   signed ad hoc, and `docs/RELEASING.md` says how to add real signing later.
 
 ## Open questions
 

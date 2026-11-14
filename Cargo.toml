@@ -8,12 +8,14 @@ description = "Common Operational Picture Program for Incident Response"
 repository = "https://github.com/sumnerkirby/COPPIR-rs"
 publish = false
 default-run = "coppir"
+authors = ["COPPIR contributors"]
+homepage = "https://github.com/sumnerkirby/COPPIR-rs"
 
 [features]
 default = ["desktop"]
 # The native window. Without it the binary is a plain local server you open in
 # a browser, which is also what CI and the test suite build.
-desktop = ["dep:wry", "dep:tao"]
+desktop = ["dep:wry", "dep:tao", "dep:muda"]
 
 [dependencies]
 axum = { version = "0.8", features = ["ws"] }
@@ -45,7 +47,53 @@ futures-util = "0.3"
 tempfile = "3"
 tokio-tungstenite = "0.30"
 
+# Installers, built with cargo-packager (`cargo install cargo-packager`).
+# See docs/RELEASING.md. The release workflow builds the binary first.
+[package.metadata.packager]
+productName = "COPPIR"
+identifier = "io.github.sumnerkirby.coppir"
+publisher = "COPPIR contributors"
+copyright = "Copyright 2026 COPPIR contributors. Apache-2.0."
+category = "Business"
+longDescription = "A common operational picture for incident response tabletop exercises: one map or topology graph, a scripted timeline, players on their own devices over the local network, and an after-action report."
+icons = ["packaging/icons/*.png"]
+binaries = [{ path = "coppir", main = true }]
+
+[package.metadata.packager.macos]
+minimumSystemVersion = "11.0"
+# Ad hoc: no certificate, but the bundle is sealed. An unsealed bundle that
+# was downloaded is reported as damaged and cannot be opened at all.
+signingIdentity = "-"
+
+[package.metadata.packager.dmg]
+windowSize = { width = 600, height = 400 }
+appPosition = { x = 160, y = 190 }
+appFolderPosition = { x = 440, y = 190 }
+
+[package.metadata.packager.nsis]
+# Per user, no administrator needed. The installer fetches the WebView2
+# runtime only on the rare Windows 10 machine without it.
+installMode = "currentUser"
+installerIcon = "packaging/icons/icon.ico"
+
+[package.metadata.packager.deb]
+depends = ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+section = "utils"
+
+[package.metadata.packager.appimage]
+# Bundles GTK and WebKitGTK so the AppImage runs on distributions without them.
+linuxdeployPlugins = { gtk = "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh" }
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
 strip = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+muda = { version = "0.19.3", default-features = false, optional = true }
+
+[target."cfg(windows)".dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_Console"] }
+
+[target."cfg(windows)".build-dependencies]
+winresource = "0.1.34"

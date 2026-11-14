@@ -1,6 +1,10 @@
 //! COPPIR launcher: start the local server, then open the desktop window
 //! (or, with `--headless`, just serve and print the address).
 
+// A released Windows app opens no console window behind it. Started from a
+// terminal, it attaches to that terminal instead; see `attach_console`.
+#![cfg_attr(all(windows, feature = "desktop", not(debug_assertions)), windows_subsystem = "windows")]
+
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -38,6 +42,8 @@ struct Cli {
 }
 
 fn main() -> anyhow_lite::Result {
+    #[cfg(windows)]
+    attach_console();
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("coppir=info,warn")))
         .init();
@@ -81,6 +87,18 @@ fn main() -> anyhow_lite::Result {
 async fn shutdown_signal() {
     let _ = tokio::signal::ctrl_c().await;
     tracing::info!("shutting down");
+}
+
+/// Print to the terminal the app was started from, if any, so `--headless`,
+/// `--help` and the logs still work there. Started from Explorer there is no
+/// such terminal, and this does nothing.
+#[cfg(windows)]
+fn attach_console() {
+    use windows_sys::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole};
+    // SAFETY: a plain Win32 call with a constant argument; failure is harmless.
+    unsafe {
+        AttachConsole(ATTACH_PARENT_PROCESS);
+    }
 }
 
 /// Just enough error plumbing for `main` without another dependency.
