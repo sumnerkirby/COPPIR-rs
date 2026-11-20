@@ -407,6 +407,32 @@ mod tests {
     }
 
     #[test]
+    fn moving_the_room_keeps_its_listeners() {
+        let rooms = Rooms::default();
+        let first = open(&rooms, "ex1");
+        assert_eq!(first.urls, ["http://192.168.1.20:8000"]);
+        assert_eq!(rooms.listening_on(), [lan()]);
+
+        // Moving the room: same address, nothing new bound.
+        let (stop, stopped) = watch::channel(());
+        let moved = rooms.open("ex2", &[lan()], vec![Listener::new(SocketAddr::new(lan(), 9999), stop)]);
+        assert_eq!(moved.urls, first.urls, "the address people were given still works");
+        assert!(stopped.has_changed().is_err(), "a spare listener for a covered address is stopped");
+
+        // The network changed: a new address joins, a vanished one goes.
+        let wifi = IpAddr::from([10, 0, 0, 5]);
+        let (stop, kept) = watch::channel(());
+        let changed = rooms.open("ex2", &[wifi], vec![Listener::new(SocketAddr::new(wifi, 8000), stop)]);
+        assert_eq!(changed.urls, ["http://10.0.0.5:8000"]);
+        assert_eq!(rooms.lan_hosts(), ["10.0.0.5:8000"]);
+        assert!(kept.has_changed().is_ok(), "the new listener is kept running");
+
+        rooms.close();
+        assert!(rooms.listening_on().is_empty());
+        assert!(kept.has_changed().is_err(), "closing stops every listener");
+    }
+
+    #[test]
     fn guessing_is_throttled_per_address() {
         let rooms = Rooms::default();
         let room = open(&rooms, "ex1");
@@ -452,31 +478,5 @@ mod tests {
         assert_ne!(other.player_code, first.player_code);
         assert!(rooms.session(&s.token).is_none(), "sessions do not carry over to another exercise");
         assert_ne!(rooms.rotate_codes().unwrap().player_code, other.player_code);
-    }
-
-    #[test]
-    fn moving_the_room_keeps_its_listeners() {
-        let rooms = Rooms::default();
-        let first = open(&rooms, "ex1");
-        assert_eq!(first.urls, ["http://192.168.1.20:8000"]);
-        assert_eq!(rooms.listening_on(), [lan()]);
-
-        // Moving the room: same address, nothing new bound.
-        let (stop, stopped) = watch::channel(());
-        let moved = rooms.open("ex2", &[lan()], vec![Listener::new(SocketAddr::new(lan(), 9999), stop)]);
-        assert_eq!(moved.urls, first.urls, "the address people were given still works");
-        assert!(stopped.has_changed().is_err(), "a spare listener for a covered address is stopped");
-
-        // The network changed: a new address joins, a vanished one goes.
-        let wifi = IpAddr::from([10, 0, 0, 5]);
-        let (stop, kept) = watch::channel(());
-        let changed = rooms.open("ex2", &[wifi], vec![Listener::new(SocketAddr::new(wifi, 8000), stop)]);
-        assert_eq!(changed.urls, ["http://10.0.0.5:8000"]);
-        assert_eq!(rooms.lan_hosts(), ["10.0.0.5:8000"]);
-        assert!(kept.has_changed().is_ok(), "the new listener is kept running");
-
-        rooms.close();
-        assert!(rooms.listening_on().is_empty());
-        assert!(kept.has_changed().is_err(), "closing stops every listener");
     }
 }
