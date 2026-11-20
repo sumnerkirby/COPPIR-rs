@@ -165,6 +165,14 @@ impl Rooms {
         self.lock().sessions.get(token).cloned()
     }
 
+    /// Whether `s` is still in the room and still sees `audience`. A socket
+    /// checks this once it is listening for [`Session::changed`], to catch a
+    /// kick or a move that landed while it was being set up, before it was
+    /// listening.
+    pub fn still_sees(&self, s: &Session, audience: &Audience) -> bool {
+        self.lock().sessions.get(&s.token).is_some_and(|cur| cur.id == s.id) && s.audience() == *audience
+    }
+
     /// `ip:port` strings the LAN listeners answer on, for the host guard.
     pub fn lan_hosts(&self) -> Vec<String> {
         self.lock()
@@ -441,6 +449,21 @@ mod tests {
         rooms.close();
         assert!(rooms.session(&b.token).is_none());
         assert!(rooms.status().open.is_none());
+    }
+
+    #[test]
+    fn a_kick_or_a_move_makes_a_view_stale() {
+        let rooms = Rooms::default();
+        open(&rooms, "ex1");
+        let a = rooms.join("ex1".into(), Role::Player, "Dana".into(), None, "t".into()).unwrap();
+        let view = a.audience();
+        assert!(rooms.still_sees(&a, &view));
+        rooms.update(&a.id, None, Some(Some("team1".into()))).unwrap();
+        assert!(!rooms.still_sees(&a, &view), "moved to another team");
+        let view = a.audience();
+        assert!(rooms.still_sees(&a, &view));
+        rooms.kick(&a.id).unwrap();
+        assert!(!rooms.still_sees(&a, &view), "kicked");
     }
 
     #[test]
