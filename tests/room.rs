@@ -408,3 +408,34 @@ async fn over_the_lan_only_members_get_in() {
     let after = http.get(format!("{lan}/api/v2/me")).send().await;
     assert!(after.is_err() || after.unwrap().status() != StatusCode::OK);
 }
+
+/// Moving the room to another exercise keeps its addresses, so the link and QR
+/// code people were given keep working.
+#[tokio::test]
+async fn moving_the_room_keeps_its_addresses() {
+    let room = room().await;
+    let app = &room.app;
+    let other = app.post("/api/v2/exercises", json!({"name": "Other"})).await.body["exercise"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let moved = app.post("/api/v2/room/open", json!({"exercise_id": other})).await;
+    assert_eq!(moved.status, StatusCode::OK, "{}", moved.body);
+    assert_eq!(moved.body["urls"], json!(room.urls));
+    let back = app.post("/api/v2/room/open", json!({"exercise_id": room.id})).await;
+    assert_eq!(back.body["urls"], json!(room.urls));
+
+    let Some(lan) = room.urls.first() else {
+        eprintln!("no LAN address on this machine; skipping the network half");
+        return;
+    };
+    // The address still answers, with the new code.
+    let r = app
+        .http
+        .post(format!("{lan}/api/v2/join"))
+        .json(&json!({"code": back.body["player_code"], "name": "Phone"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), StatusCode::OK);
+}
