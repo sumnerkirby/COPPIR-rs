@@ -161,7 +161,8 @@ listeners. The host guard then also accepts those literal `ip:port` hosts.
 **Joining (`room.rs`).** A six-character code (no lookalike characters) admits
 a player or an observer. `POST /api/v2/join` returns an `HttpOnly`,
 `SameSite=Strict` cookie. Sessions live in memory. Each address gets 12 code
-attempts a minute.
+attempts a minute: a wrong code counts wherever it is tried, a right one only
+when it joins, so the join page looking a code up first costs nothing.
 
 **Views (`exercise/view.rs`, `live.rs`).** The facilitator receives the raw
 event stream. Every other audience (observer, or a player on a given team)
