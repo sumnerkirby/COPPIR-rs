@@ -21,7 +21,7 @@ use crate::{
     auth::{self, Viewer, session_token},
     error::ApiError,
     exercise::model::Team,
-    room::{COOKIE, OpenRoom, Role, RoomStatus, lan_addresses, url_for},
+    room::{COOKIE, Listener, OpenRoom, Role, RoomStatus, lan_addresses, url_for},
     state::{AppState, now},
     validate::{Checks, Valid, Validate},
 };
@@ -64,9 +64,12 @@ async fn open(State(app): State<AppState>, Valid(req): Valid<OpenRoomReq>) -> Re
     app.live.room(&req.exercise_id)?;
     let router = app.router.get().ok_or_else(|| ApiError::internal("the app is not serving yet"))?.clone();
     let port = app.port.get().copied().unwrap_or(0);
-    let (stop, stopped) = watch::channel(());
-    let mut urls = Vec::new();
-    for ip in lan_addresses() {
+    let ips = lan_addresses();
+    // Moving the room to another exercise keeps the listeners it has, so the
+    // address and QR code people were given stay the same.
+    let have = app.rooms.listening_on();
+    let mut listeners = Vec::new();
+    for &ip in ips.iter().filter(|ip| !have.contains(ip)) {
         // Same port as on this machine when it is free there, so the address
         // is easy to say aloud; any free port otherwise.
         let listener = match TcpListener::bind(SocketAddr::new(ip, port)).await {
@@ -80,11 +83,12 @@ async fn open(State(app): State<AppState>, Valid(req): Valid<OpenRoomReq>) -> Re
             },
         };
         let Ok(addr) = listener.local_addr() else { continue };
-        urls.push(url_for(addr));
+        let (stop, mut stopped) = watch::channel(());
+        listeners.push(Listener::new(addr, stop));
         let service = router.clone().into_make_service_with_connect_info::<SocketAddr>();
-        let mut stopped = stopped.clone();
         tokio::spawn(async move {
-            // The sender is dropped when the room closes, which ends the wait.
+            // The sender is dropped when the room closes or this address goes
+            // away, which ends the wait.
             let shutdown = async move {
                 let _ = stopped.changed().await;
             };
@@ -94,7 +98,7 @@ async fn open(State(app): State<AppState>, Valid(req): Valid<OpenRoomReq>) -> Re
         });
         tracing::info!("room open on {}", url_for(addr));
     }
-    Ok(Json(app.rooms.open(&req.exercise_id, urls, stop)))
+    Ok(Json(app.rooms.open(&req.exercise_id, &ips, listeners)))
 }
 
 async fn close(State(app): State<AppState>) -> StatusCode {

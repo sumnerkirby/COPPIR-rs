@@ -116,8 +116,21 @@ pub struct OpenRoom {
 
 struct Open {
     info: OpenRoom,
-    /// Dropping this stops the LAN listeners.
+    listeners: Vec<Listener>,
+}
+
+/// One LAN listener the room serves on.
+pub struct Listener {
+    ip: IpAddr,
+    url: String,
+    /// Dropping this stops the listener.
     _stop: watch::Sender<()>,
+}
+
+impl Listener {
+    pub fn new(addr: SocketAddr, stop: watch::Sender<()>) -> Self {
+        Self { ip: addr.ip(), url: url_for(addr), _stop: stop }
+    }
 }
 
 #[derive(Default)]
@@ -179,10 +192,26 @@ impl Rooms {
         RoomStatus { open: inner.open.as_ref().map(|o| o.info.clone()), participants }
     }
 
-    /// Mark the room open for `exercise_id`. The caller starts the listeners
-    /// and passes the addresses they are on, with the handle that stops them.
-    pub fn open(&self, exercise_id: &str, urls: Vec<String>, stop: watch::Sender<()>) -> OpenRoom {
+    /// The addresses the room already listens on, so opening it again (or
+    /// moving it to another exercise) only binds the ones it lacks.
+    pub fn listening_on(&self) -> Vec<IpAddr> {
+        self.lock().open.as_ref().map(|o| o.listeners.iter().map(|l| l.ip).collect()).unwrap_or_default()
+    }
+
+    /// Mark the room open for `exercise_id`, listening on `ips` in that order.
+    /// Listeners it already has on those addresses are kept, so the join
+    /// addresses people were given keep working; `new` fills in the rest.
+    /// Listeners on addresses no longer in `ips` (and spares, should two opens
+    /// race) are dropped, which stops them.
+    pub fn open(&self, exercise_id: &str, ips: &[IpAddr], new: Vec<Listener>) -> OpenRoom {
         let mut inner = self.lock();
+        let mut spare: Vec<Listener> =
+            inner.open.as_mut().map(|o| std::mem::take(&mut o.listeners)).unwrap_or_default();
+        spare.extend(new);
+        let listeners: Vec<Listener> =
+            ips.iter().filter_map(|ip| spare.iter().position(|l| l.ip == *ip).map(|i| spare.swap_remove(i))).collect();
+        drop(spare);
+        let urls = listeners.iter().map(|l| l.url.clone()).collect();
         // Reopening for another exercise ends everyone's session in the old one.
         if inner.open.as_ref().is_some_and(|o| o.info.exercise_id != exercise_id) {
             Self::drop_sessions(&mut inner);
@@ -194,7 +223,7 @@ impl Rooms {
             observer_code: codes.as_ref().map_or_else(new_code, |c| c.observer_code.clone()),
             urls,
         };
-        inner.open = Some(Open { info: info.clone(), _stop: stop });
+        inner.open = Some(Open { info: info.clone(), listeners });
         info
     }
 
@@ -342,8 +371,17 @@ mod tests {
         IpAddr::from([10, 0, 0, n])
     }
 
+    fn lan() -> IpAddr {
+        IpAddr::from([192, 168, 1, 20])
+    }
+
+    fn listener(ip: IpAddr, port: u16) -> Listener {
+        Listener::new(SocketAddr::new(ip, port), watch::channel(()).0)
+    }
+
     fn open(rooms: &Rooms, exercise: &str) -> OpenRoom {
-        rooms.open(exercise, vec!["http://192.168.1.20:8000".into()], watch::channel(()).0)
+        let new = if rooms.listening_on().is_empty() { vec![listener(lan(), 8000)] } else { vec![] };
+        rooms.open(exercise, &[lan()], new)
     }
 
     #[test]
@@ -414,5 +452,31 @@ mod tests {
         assert_ne!(other.player_code, first.player_code);
         assert!(rooms.session(&s.token).is_none(), "sessions do not carry over to another exercise");
         assert_ne!(rooms.rotate_codes().unwrap().player_code, other.player_code);
+    }
+
+    #[test]
+    fn moving_the_room_keeps_its_listeners() {
+        let rooms = Rooms::default();
+        let first = open(&rooms, "ex1");
+        assert_eq!(first.urls, ["http://192.168.1.20:8000"]);
+        assert_eq!(rooms.listening_on(), [lan()]);
+
+        // Moving the room: same address, nothing new bound.
+        let (stop, stopped) = watch::channel(());
+        let moved = rooms.open("ex2", &[lan()], vec![Listener::new(SocketAddr::new(lan(), 9999), stop)]);
+        assert_eq!(moved.urls, first.urls, "the address people were given still works");
+        assert!(stopped.has_changed().is_err(), "a spare listener for a covered address is stopped");
+
+        // The network changed: a new address joins, a vanished one goes.
+        let wifi = IpAddr::from([10, 0, 0, 5]);
+        let (stop, kept) = watch::channel(());
+        let changed = rooms.open("ex2", &[wifi], vec![Listener::new(SocketAddr::new(wifi, 8000), stop)]);
+        assert_eq!(changed.urls, ["http://10.0.0.5:8000"]);
+        assert_eq!(rooms.lan_hosts(), ["10.0.0.5:8000"]);
+        assert!(kept.has_changed().is_ok(), "the new listener is kept running");
+
+        rooms.close();
+        assert!(rooms.listening_on().is_empty());
+        assert!(kept.has_changed().is_err(), "closing stops every listener");
     }
 }
