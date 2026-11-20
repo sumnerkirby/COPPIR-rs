@@ -356,6 +356,36 @@ async fn closing_the_room_ends_every_session() {
 }
 
 #[tokio::test]
+async fn deleting_the_exercise_closes_its_room() {
+    let room = room().await;
+    let app = &room.app;
+    let dana = Member::join(&room, &room.player_code, "Dana", None).await;
+    let mut ws = dana.ws(&room).await;
+    ws.recv().await;
+    assert_eq!(app.delete(&format!("/api/v2/exercises/{}", room.id)).await.status, StatusCode::NO_CONTENT);
+    assert!(ws.closed().await);
+    let status = app.get("/api/v2/room").await;
+    assert!(status["open"].is_null(), "{status}");
+    assert_eq!(status["participants"], json!([]));
+    assert_eq!(
+        app.post("/api/v2/join", json!({"code": room.player_code, "name": "Late"})).await.status,
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn deleting_another_exercise_leaves_the_room_open() {
+    let room = room().await;
+    let app = &room.app;
+    let other = app.post("/api/v2/exercises", json!({"name": "Other"})).await.body["exercise"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert_eq!(app.delete(&format!("/api/v2/exercises/{other}")).await.status, StatusCode::NO_CONTENT);
+    assert_eq!(app.get("/api/v2/room").await["open"]["exercise_id"], room.id.as_str());
+}
+
+#[tokio::test]
 async fn the_qr_code_is_an_svg_of_the_join_link() {
     let room = room().await;
     let r = room.app.http.get(format!("{}/api/v2/room/qr.svg", room.app.base)).send().await.unwrap();
