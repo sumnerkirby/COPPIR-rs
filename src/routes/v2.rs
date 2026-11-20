@@ -370,7 +370,7 @@ fn player_command(app: &AppState, id: &str, s: &Session, cmd: Command) -> Result
     if let Command::Respond { poll, option, text, .. } = cmd {
         let by = Responder { participant: s.id.clone(), name: s.name(), team: s.team() };
         let cmd = Command::Respond { poll, option, text, by: Some(by) };
-        let applied = app.live.execute(id, &format!("player:{}", s.id), cmd)?;
+        let applied = app.live.execute_for_player(id, &format!("player:{}", s.id), cmd, |_| {})?;
         return Ok(Applied { seq: applied.seq, events: vec![] });
     }
     let Command::Log { asset, .. } = &cmd else {
@@ -396,7 +396,7 @@ fn player_command(app: &AppState, id: &str, s: &Session, cmd: Command) -> Result
         None => Visibility::All,
     };
     let actor = format!("player:{}", s.id);
-    let applied = app.live.execute_with(id, &actor, cmd, |events| {
+    let applied = app.live.execute_for_player(id, &actor, cmd, |events| {
         for e in events {
             if let Event::Logged { entry } = e {
                 entry.author.clone_from(&author);

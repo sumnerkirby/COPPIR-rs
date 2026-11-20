@@ -186,18 +186,34 @@ impl Live {
         Ok((st.exercise.clone(), st.seq))
     }
 
+    /// Run a facilitator's command. The change goes on the undo stack.
     pub fn execute(&self, id: &str, actor: &str, cmd: Command) -> Result<Applied, ApiError> {
-        self.execute_with(id, actor, cmd, |_| {})
+        self.run(id, actor, cmd, true, |_| {})
     }
 
-    /// Like [`execute`](Self::execute), with a chance to adjust the events
-    /// before they are stored. Used to stamp a player's log entry with who
-    /// wrote it, which the player's own request cannot be trusted to say.
-    pub fn execute_with(
+    /// Run a player's command, with a chance to adjust the events before they
+    /// are stored: used to stamp a log entry with who wrote it, which the
+    /// player's own request cannot be trusted to say.
+    ///
+    /// Players' changes stay off the undo stack, so the facilitator's undo
+    /// never takes back a player's log entry or poll answer in place of the
+    /// facilitator's own last change.
+    pub fn execute_for_player(
         &self,
         id: &str,
         actor: &str,
         cmd: Command,
+        adjust: impl FnOnce(&mut Vec<Event>),
+    ) -> Result<Applied, ApiError> {
+        self.run(id, actor, cmd, false, adjust)
+    }
+
+    fn run(
+        &self,
+        id: &str,
+        actor: &str,
+        cmd: Command,
+        undoable: bool,
         adjust: impl FnOnce(&mut Vec<Event>),
     ) -> Result<Applied, ApiError> {
         let room = self.room(id)?;
@@ -207,9 +223,13 @@ impl Live {
         let events = if undoing {
             let entry = st.undo.pop().ok_or(ApiError::Conflict("Nothing to undo"))?;
             if !still_current(&st.exercise, &entry.events) {
-                // Put it back: it may become undoable again if the later change is undone first.
-                st.undo.push(entry);
-                return Err(ApiError::Conflict("Something has changed since; undo that first"));
+                // Something not on the stack has changed it since: players
+                // answering a poll that was just opened, say. Nothing can be
+                // undone to bring it back, so drop it rather than leave it
+                // blocking every older change.
+                return Err(ApiError::Conflict(
+                    "The last change has been changed again since, so it cannot be undone. Undo again to go further back.",
+                ));
             }
             let mut events = vec![Event::Undone { seqs: entry.seqs.clone() }];
             events.extend(entry.inverse);
@@ -222,7 +242,7 @@ impl Live {
         if events.is_empty() {
             return Ok(Applied { seq: st.seq, events: vec![] });
         }
-        let envelopes = self.commit(id, &room, &mut st, actor, events, &at, !undoing)?;
+        let envelopes = self.commit(id, &room, &mut st, actor, events, &at, undoable && !undoing)?;
         // Whatever this change set off: conditional injects, a chain of them.
         self.run_engine(id, &room, &mut st);
         publish_views(&mut st, &at);

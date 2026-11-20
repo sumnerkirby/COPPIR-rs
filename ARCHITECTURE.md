@@ -139,10 +139,16 @@ answers, and totals only once it closes.
 
 Before `apply` runs each event, `undo::inverse` computes the events that
 reverse it from the state just before it. The room keeps the last 100 changes
-with their inverses, in memory. `Command::Undo` pops the newest one. It checks
-with `undo::still_current` that nothing later has overwritten what it touched.
-Then it appends `Undone { seqs }` followed by the inverse events. History is never
-rewritten. The undo stack does not survive a restart; the log does.
+with their inverses, in memory: the facilitator's changes and the script
+engine's. Players' log entries and poll answers stay off it
+(`Live::execute_for_player`), so undo never takes one back in place of the
+facilitator's own last change. `Command::Undo` pops the newest entry. It checks
+with `undo::still_current` that nothing later has overwritten what it touched;
+if something has (players answering a poll that was just opened), the entry is
+dropped with a 409, since nothing on the stack could ever make it current again,
+and the next undo reaches further back. Otherwise it appends `Undone { seqs }`
+followed by the inverse events. History is never rewritten. The undo stack does
+not survive a restart; the log does.
 
 ## Room access
 
