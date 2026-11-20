@@ -27,12 +27,25 @@ use crate::{error::ApiError, exercise::view::Audience, state::new_id};
 
 pub const COOKIE: &str = "coppir_session";
 
-/// Join attempts allowed per address per minute, right or wrong.
+/// Attempts allowed per address per minute. A wrong code counts wherever it
+/// is tried; a right one counts only when it joins (see [`CodeUse`]).
 const ATTEMPTS_PER_MINUTE: u32 = 12;
 /// No lookalikes: no 0/O, 1/I/L.
 const CODE_ALPHABET: &[u8] = b"ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const CODE_LEN: usize = 6;
 const MAX_SESSIONS: usize = 500;
+
+/// Why a code is being checked, which decides whether a right one counts
+/// against the address's attempts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CodeUse {
+    /// The join page asking what a code admits to before the name is typed.
+    /// A right code is free here, so one join costs one attempt, not two; a
+    /// wrong one still counts, so this is no way round the limit on guessing.
+    Look,
+    /// Joining: makes a session, so it always counts.
+    Join,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "snake_case")]
@@ -152,6 +165,14 @@ impl Rooms {
         self.lock().sessions.get(token).cloned()
     }
 
+    /// Whether `s` is still in the room and still sees `audience`. A socket
+    /// checks this once it is listening for [`Session::changed`], to catch a
+    /// kick or a move that landed while it was being set up, before it was
+    /// listening.
+    pub fn still_sees(&self, s: &Session, audience: &Audience) -> bool {
+        self.lock().sessions.get(&s.token).is_some_and(|cur| cur.id == s.id) && s.audience() == *audience
+    }
+
     /// `ip:port` strings the LAN listeners answer on, for the host guard.
     pub fn lan_hosts(&self) -> Vec<String> {
         self.lock()
@@ -220,31 +241,39 @@ impl Rooms {
         Ok(open.info.clone())
     }
 
+    /// Refuse an address that has used up its attempts for this minute.
     fn throttle(inner: &mut Inner, ip: IpAddr) -> Result<(), ApiError> {
         let now = Instant::now();
         inner.attempts.retain(|_, (since, _)| now.duration_since(*since) < Duration::from_secs(60));
-        let entry = inner.attempts.entry(ip).or_insert((now, 0));
-        entry.1 += 1;
-        if entry.1 > ATTEMPTS_PER_MINUTE {
+        if inner.attempts.get(&ip).is_some_and(|(_, n)| *n >= ATTEMPTS_PER_MINUTE) {
             return Err(ApiError::TooManyRequests("Too many attempts; wait a minute and try again"));
         }
         Ok(())
     }
 
+    fn count_attempt(inner: &mut Inner, ip: IpAddr) {
+        inner.attempts.entry(ip).or_insert((Instant::now(), 0)).1 += 1;
+    }
+
     /// Which exercise and role a code admits to, if any.
-    pub fn check_code(&self, code: &str, ip: IpAddr) -> Result<(String, Role), ApiError> {
+    pub fn check_code(&self, code: &str, ip: IpAddr, purpose: CodeUse) -> Result<(String, Role), ApiError> {
         let mut inner = self.lock();
         Self::throttle(&mut inner, ip)?;
         let code = normalize_code(code);
-        let open = inner.open.as_ref().ok_or(ApiError::NotFound("That code is not valid"))?;
-        let role = if code == open.info.player_code {
-            Role::Player
-        } else if code == open.info.observer_code {
-            Role::Observer
-        } else {
-            return Err(ApiError::NotFound("That code is not valid"));
-        };
-        Ok((open.info.exercise_id.clone(), role))
+        let found = inner.open.as_ref().and_then(|open| {
+            let role = if code == open.info.player_code {
+                Role::Player
+            } else if code == open.info.observer_code {
+                Role::Observer
+            } else {
+                return None;
+            };
+            Some((open.info.exercise_id.clone(), role))
+        });
+        if found.is_none() || purpose == CodeUse::Join {
+            Self::count_attempt(&mut inner, ip);
+        }
+        found.ok_or(ApiError::NotFound("That code is not valid"))
     }
 
     pub fn join(
@@ -359,12 +388,15 @@ mod tests {
     #[test]
     fn codes_admit_to_the_right_role() {
         let rooms = Rooms::default();
-        assert!(rooms.check_code("ABCDEF", ip(1)).is_err(), "closed room admits nobody");
+        assert!(rooms.check_code("ABCDEF", ip(1), CodeUse::Join).is_err(), "closed room admits nobody");
         let room = open(&rooms, "ex1");
         assert_ne!(room.player_code, room.observer_code);
-        assert_eq!(rooms.check_code(&room.player_code.to_lowercase(), ip(1)).unwrap(), ("ex1".into(), Role::Player));
-        assert_eq!(rooms.check_code(&room.observer_code, ip(1)).unwrap().1, Role::Observer);
-        assert!(rooms.check_code("WRONG1", ip(1)).is_err());
+        assert_eq!(
+            rooms.check_code(&room.player_code.to_lowercase(), ip(1), CodeUse::Join).unwrap(),
+            ("ex1".into(), Role::Player)
+        );
+        assert_eq!(rooms.check_code(&room.observer_code, ip(1), CodeUse::Join).unwrap().1, Role::Observer);
+        assert!(rooms.check_code("WRONG1", ip(1), CodeUse::Join).is_err());
         assert_eq!(rooms.lan_hosts(), ["192.168.1.20:8000"]);
     }
 
@@ -373,11 +405,28 @@ mod tests {
         let rooms = Rooms::default();
         let room = open(&rooms, "ex1");
         for _ in 0..ATTEMPTS_PER_MINUTE {
-            let _ = rooms.check_code("WRONG1", ip(1));
+            let _ = rooms.check_code("WRONG1", ip(1), CodeUse::Join);
         }
-        assert!(matches!(rooms.check_code(&room.player_code, ip(1)), Err(ApiError::TooManyRequests(_))));
+        assert!(matches!(rooms.check_code(&room.player_code, ip(1), CodeUse::Join), Err(ApiError::TooManyRequests(_))));
         // Someone else is unaffected.
-        assert!(rooms.check_code(&room.player_code, ip(2)).is_ok());
+        assert!(rooms.check_code(&room.player_code, ip(2), CodeUse::Join).is_ok());
+    }
+
+    #[test]
+    fn looking_up_a_right_code_is_free_but_a_wrong_one_counts() {
+        let rooms = Rooms::default();
+        let room = open(&rooms, "ex1");
+        // The join page looks the code up, then joins: one attempt per join.
+        for _ in 0..ATTEMPTS_PER_MINUTE {
+            assert!(rooms.check_code(&room.player_code, ip(1), CodeUse::Look).is_ok());
+            assert!(rooms.check_code(&room.player_code, ip(1), CodeUse::Join).is_ok());
+        }
+        assert!(matches!(rooms.check_code(&room.player_code, ip(1), CodeUse::Join), Err(ApiError::TooManyRequests(_))));
+        // Looking up wrong codes is guessing, and is limited like any other.
+        for _ in 0..ATTEMPTS_PER_MINUTE {
+            let _ = rooms.check_code("WRONG1", ip(2), CodeUse::Look);
+        }
+        assert!(matches!(rooms.check_code(&room.player_code, ip(2), CodeUse::Look), Err(ApiError::TooManyRequests(_))));
     }
 
     #[test]
@@ -400,6 +449,21 @@ mod tests {
         rooms.close();
         assert!(rooms.session(&b.token).is_none());
         assert!(rooms.status().open.is_none());
+    }
+
+    #[test]
+    fn a_kick_or_a_move_makes_a_view_stale() {
+        let rooms = Rooms::default();
+        open(&rooms, "ex1");
+        let a = rooms.join("ex1".into(), Role::Player, "Dana".into(), None, "t".into()).unwrap();
+        let view = a.audience();
+        assert!(rooms.still_sees(&a, &view));
+        rooms.update(&a.id, None, Some(Some("team1".into()))).unwrap();
+        assert!(!rooms.still_sees(&a, &view), "moved to another team");
+        let view = a.audience();
+        assert!(rooms.still_sees(&a, &view));
+        rooms.kick(&a.id).unwrap();
+        assert!(!rooms.still_sees(&a, &view), "kicked");
     }
 
     #[test]

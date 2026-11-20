@@ -216,7 +216,7 @@ async fn join_info(
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     Query(q): Query<CodeQuery>,
 ) -> Result<Json<JoinInfo>, ApiError> {
-    let (exercise_id, role) = app.rooms.check_code(&q.code, peer.ip())?;
+    let (exercise_id, role) = app.rooms.check_code(&q.code, peer.ip(), crate::room::CodeUse::Look)?;
     let (ex, _) = app.live.snapshot(&exercise_id)?;
     Ok(Json(JoinInfo { exercise: ex.name, role, teams: ex.teams }))
 }
@@ -243,7 +243,7 @@ async fn join(
     headers: HeaderMap,
     Valid(req): Valid<JoinReq>,
 ) -> Result<Response, ApiError> {
-    let (exercise_id, role) = app.rooms.check_code(&req.code, peer.ip())?;
+    let (exercise_id, role) = app.rooms.check_code(&req.code, peer.ip(), crate::room::CodeUse::Join)?;
     let (ex, _) = app.live.snapshot(&exercise_id)?;
     let team = match (role, req.team) {
         (Role::Player, Some(t)) if ex.teams.iter().any(|x| x.id == t) => Some(t),

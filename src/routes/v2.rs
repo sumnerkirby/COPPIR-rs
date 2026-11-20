@@ -425,26 +425,32 @@ async fn ws(
     Query(q): Query<After>,
 ) -> Result<Response, ApiError> {
     viewer.check_exercise(&id)?;
+    // A participant's view is fixed for the life of the socket: the one it
+    // subscribed to. Moving them to another team hangs it up.
     let session = match viewer {
         Viewer::Facilitator => None,
-        Viewer::Session(s) => Some(s),
+        Viewer::Session(s) => {
+            let audience = s.audience();
+            Some((s, audience))
+        }
     };
-    let (initial, rx) = subscribe(&app, &id, session.as_deref(), q.after)?;
+    let (initial, rx) = subscribe(&app, &id, session.as_ref().map(|(_, a)| a), q.after)?;
     Ok(upgrade.on_upgrade(move |socket| client(socket, app, id, session, initial, rx)))
 }
 
 type Messages = Vec<axum::extract::ws::Utf8Bytes>;
 type Receiver = tokio::sync::broadcast::Receiver<axum::extract::ws::Utf8Bytes>;
 
+/// The facilitator's full event stream, or a participant's own view.
 fn subscribe(
     app: &AppState,
     id: &str,
-    session: Option<&Session>,
+    audience: Option<&Audience>,
     after: Option<u64>,
 ) -> Result<(Messages, Receiver), ApiError> {
-    match session {
+    match audience {
         None => app.live.subscribe(id, after),
-        Some(s) => app.live.subscribe_view(id, &s.audience()).map(|(snapshot, rx)| (vec![snapshot], rx)),
+        Some(a) => app.live.subscribe_view(id, a).map(|(snapshot, rx)| (vec![snapshot], rx)),
     }
 }
 
@@ -472,27 +478,32 @@ async fn client(
     mut socket: WebSocket,
     app: AppState,
     id: String,
-    session: Option<std::sync::Arc<Session>>,
+    session: Option<(std::sync::Arc<Session>, Audience)>,
     initial: Messages,
     mut rx: Receiver,
 ) {
+    let (session, audience) = session.unzip();
     let connected = Connected::new(session);
     let session = connected.0.as_deref();
+    // Kicked, moved to another team, or the room closed: hang up. A moved
+    // client reconnects and lands in its new view. Start listening before
+    // anything else, then check nothing happened before we were listening:
+    // a move that slipped in while the socket was being set up would
+    // otherwise leave this client on its old team's view.
+    let never = tokio::sync::Notify::new();
+    let changed = session.map_or(&never, |s| &s.changed).notified();
+    tokio::pin!(changed);
+    changed.as_mut().enable();
+    if let (Some(s), Some(audience)) = (session, &audience) {
+        if !app.rooms.still_sees(s, audience) {
+            return;
+        }
+    }
     for msg in initial {
         if socket.send(Message::Text(msg)).await.is_err() {
             return;
         }
     }
-    // Kicked, moved to another team, or the room closed: hang up. A moved
-    // client reconnects and lands in its new view. The future is created once,
-    // before the loop, so a notification between iterations is not missed.
-    let changed = async {
-        match session {
-            Some(s) => s.changed.notified().await,
-            None => std::future::pending().await,
-        }
-    };
-    tokio::pin!(changed);
     loop {
         tokio::select! {
             msg = rx.recv() => {
@@ -501,7 +512,7 @@ async fn client(
                     Err(RecvError::Lagged(_)) => {
                         // Too far behind to replay from the channel: resubscribe
                         // and send a fresh snapshot.
-                        let Ok((initial, fresh)) = subscribe(&app, &id, session, None) else { break };
+                        let Ok((initial, fresh)) = subscribe(&app, &id, audience.as_ref(), None) else { break };
                         rx = fresh;
                         let Some(snap) = initial.into_iter().next() else { break };
                         snap

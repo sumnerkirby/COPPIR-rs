@@ -135,6 +135,22 @@ async fn joining_needs_a_valid_code_and_a_name() {
     assert!(!status.to_string().contains(dana.cookie.split('=').nth(1).unwrap()));
 }
 
+/// The join page looks a code up and then joins with it. Only the join
+/// counts, so a laptop joining test players is not cut off after six.
+#[tokio::test]
+async fn looking_up_a_code_does_not_use_up_attempts() {
+    let room = room().await;
+    let app = &room.app;
+    for i in 1..=12 {
+        let info = app.call(Method::GET, &format!("/api/v2/join?code={}", room.player_code), None).await;
+        assert_eq!(info.status, StatusCode::OK, "lookup {i}");
+        let join = app.post("/api/v2/join", json!({"code": room.player_code, "name": format!("P{i}")})).await;
+        assert_eq!(join.status, StatusCode::OK, "join {i}");
+    }
+    let r = app.post("/api/v2/join", json!({"code": room.player_code, "name": "P13"})).await;
+    assert_eq!(r.status, StatusCode::TOO_MANY_REQUESTS);
+}
+
 #[tokio::test]
 async fn participants_cannot_manage_exercises() {
     let room = room().await;
