@@ -317,45 +317,6 @@ async fn player_log_entries_are_stamped_and_stay_with_the_team() {
 }
 
 #[tokio::test]
-async fn moving_and_kicking_take_effect_at_once() {
-    let room = room().await;
-    let app = &room.app;
-    let dana = Member::join(&room, &room.player_code, "Dana", Some(&room.it)).await;
-    let mut ws = dana.ws(&room).await;
-    ws.recv().await;
-    let pid = app.get("/api/v2/room").await["participants"][0]["id"].as_str().unwrap().to_owned();
-
-    // Moving teams hangs up the socket so the client reconnects into its new view.
-    let r =
-        app.call(Method::PATCH, &format!("/api/v2/room/participants/{pid}"), Some(json!({"team": room.legal}))).await;
-    assert_eq!(r.status, StatusCode::NO_CONTENT, "{}", r.body);
-    assert!(ws.closed().await);
-    assert_eq!(dana.get(app, "/api/v2/me").await["team"], room.legal.as_str());
-
-    let mut ws = dana.ws(&room).await;
-    ws.recv().await;
-    assert_eq!(app.delete(&format!("/api/v2/room/participants/{pid}")).await.status, StatusCode::NO_CONTENT);
-    assert!(ws.closed().await);
-    assert_eq!(app.get("/api/v2/room").await["participants"], json!([]));
-}
-
-#[tokio::test]
-async fn closing_the_room_ends_every_session() {
-    let room = room().await;
-    let app = &room.app;
-    let dana = Member::join(&room, &room.player_code, "Dana", None).await;
-    let mut ws = dana.ws(&room).await;
-    ws.recv().await;
-    assert_eq!(app.post_empty("/api/v2/room/close").await.status, StatusCode::NO_CONTENT);
-    assert!(ws.closed().await);
-    assert!(app.get("/api/v2/room").await["open"].is_null());
-    assert_eq!(
-        app.post("/api/v2/join", json!({"code": room.player_code, "name": "Late"})).await.status,
-        StatusCode::NOT_FOUND
-    );
-}
-
-#[tokio::test]
 async fn undo_passes_over_players_log_entries() {
     let room = room().await;
     let app = &room.app;
@@ -406,6 +367,45 @@ async fn undo_never_erases_poll_answers_and_is_not_stuck_on_them() {
     assert_eq!(snap["exercise"]["metrics"].as_array().unwrap().len(), 1);
     assert_eq!(undo().await.status, StatusCode::OK, "the metric, from before the poll");
     assert_eq!(app.get(&path).await["exercise"]["metrics"], json!([]));
+}
+
+#[tokio::test]
+async fn moving_and_kicking_take_effect_at_once() {
+    let room = room().await;
+    let app = &room.app;
+    let dana = Member::join(&room, &room.player_code, "Dana", Some(&room.it)).await;
+    let mut ws = dana.ws(&room).await;
+    ws.recv().await;
+    let pid = app.get("/api/v2/room").await["participants"][0]["id"].as_str().unwrap().to_owned();
+
+    // Moving teams hangs up the socket so the client reconnects into its new view.
+    let r =
+        app.call(Method::PATCH, &format!("/api/v2/room/participants/{pid}"), Some(json!({"team": room.legal}))).await;
+    assert_eq!(r.status, StatusCode::NO_CONTENT, "{}", r.body);
+    assert!(ws.closed().await);
+    assert_eq!(dana.get(app, "/api/v2/me").await["team"], room.legal.as_str());
+
+    let mut ws = dana.ws(&room).await;
+    ws.recv().await;
+    assert_eq!(app.delete(&format!("/api/v2/room/participants/{pid}")).await.status, StatusCode::NO_CONTENT);
+    assert!(ws.closed().await);
+    assert_eq!(app.get("/api/v2/room").await["participants"], json!([]));
+}
+
+#[tokio::test]
+async fn closing_the_room_ends_every_session() {
+    let room = room().await;
+    let app = &room.app;
+    let dana = Member::join(&room, &room.player_code, "Dana", None).await;
+    let mut ws = dana.ws(&room).await;
+    ws.recv().await;
+    assert_eq!(app.post_empty("/api/v2/room/close").await.status, StatusCode::NO_CONTENT);
+    assert!(ws.closed().await);
+    assert!(app.get("/api/v2/room").await["open"].is_null());
+    assert_eq!(
+        app.post("/api/v2/join", json!({"code": room.player_code, "name": "Late"})).await.status,
+        StatusCode::NOT_FOUND
+    );
 }
 
 #[tokio::test]
