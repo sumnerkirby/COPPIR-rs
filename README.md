@@ -482,10 +482,13 @@ The report carries the exercise's banner, logo and accent colour.
 
 ## Undo
 
-**Undo** in the title bar, or Ctrl/⌘+Z, reverses the most recent change of any
+**Undo** in the title bar, or Ctrl/⌘+Z, reverses your most recent change of any
 kind: a status change, a deleted asset, a fired inject, a drawing. It reaches
-back 100 changes. If a later change touched the same asset, undo stops
-instead of overwriting that later work. Undo appends to the history rather than
+back 100 changes. Players' log entries and poll answers are not undone, so
+undo always takes back your own work. If a later change touched the same thing,
+undo stops instead of overwriting that later work. For example, once players
+have answered a poll, opening that poll cannot be undone. Press undo again to
+go further back. Undo appends to the history rather than
 erasing it, so the record of the exercise stays complete.
 
 ---

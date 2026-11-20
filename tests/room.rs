@@ -356,6 +356,59 @@ async fn closing_the_room_ends_every_session() {
 }
 
 #[tokio::test]
+async fn undo_passes_over_players_log_entries() {
+    let room = room().await;
+    let app = &room.app;
+    let dana = Member::join(&room, &room.player_code, "Dana", None).await;
+    let commands = format!("/api/v2/exercises/{}/commands", room.id);
+    cmd(app, &room.id, json!({"type": "log", "text": "facilitator note"})).await;
+    let (status, _) =
+        dana.call(app, Method::POST, &commands, Some(json!({"type": "log", "text": "player note"}))).await;
+    assert_eq!(status, StatusCode::OK);
+
+    // The facilitator's undo takes back the facilitator's note, not Dana's.
+    cmd(app, &room.id, json!({"type": "undo"})).await;
+    let log = app.get(&format!("/api/v2/exercises/{}", room.id)).await["exercise"]["log"].clone();
+    let texts: Vec<&str> = log.as_array().unwrap().iter().map(|e| e["text"].as_str().unwrap()).collect();
+    assert_eq!(texts, ["player note"]);
+}
+
+#[tokio::test]
+async fn undo_never_erases_poll_answers_and_is_not_stuck_on_them() {
+    let room = room().await;
+    let app = &room.app;
+    let dana = Member::join(&room, &room.player_code, "Dana", None).await;
+    let path = format!("/api/v2/exercises/{}", room.id);
+    cmd(app, &room.id, json!({"type": "add_metric", "name": "Comms", "value": 40})).await;
+    let r =
+        cmd(app, &room.id, json!({"type": "add_poll", "poll": {"question": "Pay?", "options": ["Yes", "No"]}})).await;
+    let poll = r["events"][0]["event"]["poll"].clone();
+    let (pid, yes) = (poll["id"].as_str().unwrap(), poll["options"][0]["id"].as_str().unwrap());
+    cmd(app, &room.id, json!({"type": "open_poll", "id": pid})).await;
+    let (status, body) = dana
+        .call(
+            app,
+            Method::POST,
+            &format!("{path}/commands"),
+            Some(json!({"type": "respond", "poll": pid, "option": yes})),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    // Undoing the poll's opening or creation would throw Dana's answer away,
+    // so each is refused, and dropped so undo can reach further back.
+    let commands = format!("{path}/commands");
+    let undo = || app.post(&commands, json!({"type": "undo"}));
+    assert_eq!(undo().await.status, StatusCode::CONFLICT, "opening the poll");
+    assert_eq!(undo().await.status, StatusCode::CONFLICT, "adding the poll");
+    let snap = app.get(&path).await;
+    assert_eq!(snap["exercise"]["polls"][pid]["responses"].as_array().unwrap().len(), 1, "the answer is kept");
+    assert_eq!(snap["exercise"]["metrics"].as_array().unwrap().len(), 1);
+    assert_eq!(undo().await.status, StatusCode::OK, "the metric, from before the poll");
+    assert_eq!(app.get(&path).await["exercise"]["metrics"], json!([]));
+}
+
+#[tokio::test]
 async fn the_qr_code_is_an_svg_of_the_join_link() {
     let room = room().await;
     let r = room.app.http.get(format!("{}/api/v2/room/qr.svg", room.app.base)).send().await.unwrap();
