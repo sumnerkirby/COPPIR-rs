@@ -344,6 +344,9 @@ async fn snapshot(
 
 async fn remove(State(app): State<AppState>, Path(id): Path<String>) -> Result<StatusCode, ApiError> {
     app.live.delete(&id)?;
+    if app.rooms.close_for(&id) {
+        tracing::info!("room closed: its exercise was deleted");
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 

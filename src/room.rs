@@ -205,6 +205,18 @@ impl Rooms {
         Self::drop_sessions(&mut inner);
     }
 
+    /// Close the room if it is open for `exercise_id`: that exercise is gone,
+    /// so its codes and listeners must not outlive it.
+    pub fn close_for(&self, exercise_id: &str) -> bool {
+        let mut inner = self.lock();
+        if inner.open.as_ref().is_none_or(|o| o.info.exercise_id != exercise_id) {
+            return false;
+        }
+        inner.open = None;
+        Self::drop_sessions(&mut inner);
+        true
+    }
+
     fn drop_sessions(inner: &mut Inner) {
         for (_, s) in inner.sessions.drain() {
             s.changed.notify_waiters();
@@ -414,5 +426,18 @@ mod tests {
         assert_ne!(other.player_code, first.player_code);
         assert!(rooms.session(&s.token).is_none(), "sessions do not carry over to another exercise");
         assert_ne!(rooms.rotate_codes().unwrap().player_code, other.player_code);
+    }
+
+    #[test]
+    fn deleting_an_exercise_closes_only_its_own_room() {
+        let rooms = Rooms::default();
+        open(&rooms, "ex1");
+        let s = rooms.join("ex1".into(), Role::Player, "Dana".into(), None, "t".into()).unwrap();
+        assert!(!rooms.close_for("ex2"), "another exercise leaves the room alone");
+        assert!(rooms.status().open.is_some());
+        assert!(rooms.close_for("ex1"));
+        assert!(rooms.status().open.is_none());
+        assert!(rooms.session(&s.token).is_none());
+        assert!(rooms.lan_hosts().is_empty());
     }
 }
